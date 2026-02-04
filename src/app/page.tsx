@@ -22,6 +22,9 @@ export default function Home() {
   const hoverTargetRef = useRef<{ x: number; y: number; scale: number } | null>(null);
   const hoverIdRef = useRef<string | null>(null);
   const hoverLockRef = useRef<{ x: number; y: number } | null>(null);
+  const hoverPendingIdRef = useRef<string | null>(null);
+  const hoverTimerRef = useRef<number | null>(null);
+  const hoverDelayMs = 300;
 
   // items en state pour pouvoir bouger en EDIT MODE
   const [items, setItems] = useState<MapItem[]>(MAP_ITEMS);
@@ -73,7 +76,7 @@ export default function Home() {
       const t = hoverTargetRef.current ?? baseTargetRef.current;
       const v = viewRef.current;
 
-      const ease = hoverTargetRef.current ? 0.12 : 0.18; // + petit = + smooth
+      const ease = hoverTargetRef.current ? 0.06 : 0.18; // + petit = + smooth
 
       const nx = v.x + (t.x - v.x) * ease;
       const ny = v.y + (t.y - v.y) * ease;
@@ -126,9 +129,7 @@ export default function Home() {
 
   useEffect(() => {
     if (!openItem) return;
-    hoverIdRef.current = null;
-    hoverTargetRef.current = null;
-    hoverLockRef.current = null;
+    clearHover();
   }, [openItem]);
 
   const screenToWorld = (sx: number, sy: number) => {
@@ -142,6 +143,11 @@ export default function Home() {
     hoverIdRef.current = null;
     hoverTargetRef.current = null;
     hoverLockRef.current = null;
+    hoverPendingIdRef.current = null;
+    if (hoverTimerRef.current) {
+      window.clearTimeout(hoverTimerRef.current);
+      hoverTimerRef.current = null;
+    }
   };
 
   const getItemFocusTarget = (item: MapItem) => {
@@ -167,16 +173,45 @@ export default function Home() {
     return { x: nextX, y: nextY, scale: nextScale };
   };
 
-  const handleItemEnter = (item: MapItem, event: React.PointerEvent) => {
+  const startHoverDelay = (item: MapItem, event: React.PointerEvent) => {
     if (editMode || openItem) return;
-    if (hoverIdRef.current === item.id) return;
+    if (hoverIdRef.current === item.id || hoverPendingIdRef.current === item.id) {
+      hoverLockRef.current = { x: event.clientX, y: event.clientY };
+      return;
+    }
 
-    const nextTarget = getItemFocusTarget(item);
-    if (!nextTarget) return;
-
-    hoverIdRef.current = item.id;
-    hoverTargetRef.current = nextTarget;
+    clearHover();
+    hoverPendingIdRef.current = item.id;
     hoverLockRef.current = { x: event.clientX, y: event.clientY };
+
+    hoverTimerRef.current = window.setTimeout(() => {
+      hoverTimerRef.current = null;
+      if (hoverPendingIdRef.current !== item.id) return;
+      if (openItem || editMode) return;
+
+      if (hoverLockRef.current) {
+        const el = document.elementFromPoint(
+          hoverLockRef.current.x,
+          hoverLockRef.current.y
+        ) as HTMLElement | null;
+        const nodeEl = el?.closest("[data-node]") as HTMLElement | null;
+        const nextId = nodeEl?.getAttribute("data-node-id");
+        if (nextId !== item.id) {
+          clearHover();
+          return;
+        }
+      }
+
+      const nextTarget = getItemFocusTarget(item);
+      if (!nextTarget) {
+        clearHover();
+        return;
+      }
+
+      hoverPendingIdRef.current = null;
+      hoverIdRef.current = item.id;
+      hoverTargetRef.current = nextTarget;
+    }, hoverDelayMs);
   };
 
   const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
@@ -202,27 +237,46 @@ export default function Home() {
   };
 
   const handlePointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
-    if (!dragRef.current.active && hoverIdRef.current && hoverLockRef.current) {
-      const dx = event.clientX - hoverLockRef.current.x;
-      const dy = event.clientY - hoverLockRef.current.y;
-      const moved = Math.hypot(dx, dy) > 8;
+    if (!dragRef.current.active) {
+      const lock = hoverLockRef.current;
+      const moved = !lock || Math.hypot(event.clientX - lock.x, event.clientY - lock.y) > 8;
 
       if (moved) {
         const el = document.elementFromPoint(event.clientX, event.clientY) as HTMLElement | null;
         const nodeEl = el?.closest("[data-node]") as HTMLElement | null;
         const nextId = nodeEl?.getAttribute("data-node-id");
 
-        if (!nextId) {
-          clearHover();
-        } else if (nextId !== hoverIdRef.current) {
+        if (hoverIdRef.current) {
+          if (!nextId) {
+            clearHover();
+          } else if (nextId !== hoverIdRef.current) {
+            const nextItem = items.find((it) => it.id === nextId);
+            if (nextItem) {
+              startHoverDelay(nextItem, event);
+            } else {
+              clearHover();
+            }
+          } else {
+            hoverLockRef.current = { x: event.clientX, y: event.clientY };
+          }
+        } else if (hoverPendingIdRef.current) {
+          if (!nextId) {
+            clearHover();
+          } else if (nextId !== hoverPendingIdRef.current) {
+            const nextItem = items.find((it) => it.id === nextId);
+            if (nextItem) {
+              startHoverDelay(nextItem, event);
+            } else {
+              clearHover();
+            }
+          } else {
+            hoverLockRef.current = { x: event.clientX, y: event.clientY };
+          }
+        } else if (nextId) {
           const nextItem = items.find((it) => it.id === nextId);
           if (nextItem) {
-            handleItemEnter(nextItem, event);
-          } else {
-            clearHover();
+            startHoverDelay(nextItem, event);
           }
-        } else {
-          hoverLockRef.current = { x: event.clientX, y: event.clientY };
         }
       }
     }
@@ -348,7 +402,7 @@ export default function Home() {
         }
       : {
           onClick: () => setOpenItem(item),
-          onPointerEnter: (event: React.PointerEvent) => handleItemEnter(item, event)
+          onPointerEnter: (event: React.PointerEvent) => startHoverDelay(item, event)
         };
 
     if (item.type === "logo" && item.src) {
