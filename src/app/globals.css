@@ -90,7 +90,8 @@ button {
   height: 100%;
   /* border-radius: 8px; */
   /* box-shadow: 0 20px 45px rgba(0, 0, 0, 0.55), 0 0 30px rgba(176, 0, 24, 0.3); */
-  object-fit: cover;
+  object-fit: contain;
+  background: #040102;
 }
 
 .node-media video {
@@ -182,11 +183,11 @@ button {
 .modal-text {
   display: grid;
   gap: 0.9rem;
-  line-height: 1.55;
-  color: #f0e4e6;
+  line-height: 1.4;
+  color: var(--red-bright);
   text-transform: uppercase;
-  font-size: 0.85rem;
-  letter-spacing: 0.05em;
+  font-size: 0.6rem;
+  letter-spacing: 0.1em;
 }
 
 .modal-card img,
