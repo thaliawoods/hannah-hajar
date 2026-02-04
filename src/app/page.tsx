@@ -18,6 +18,11 @@ export default function Home() {
   const [view, setView] = useState({ x: 0, y: 0, scale: 1 });
   const viewRef = useRef(view);
 
+  const baseTargetRef = useRef({ x: 0, y: 0, scale: 1 });
+  const hoverTargetRef = useRef<{ x: number; y: number; scale: number } | null>(null);
+  const hoverIdRef = useRef<string | null>(null);
+  const hoverLockRef = useRef<{ x: number; y: number } | null>(null);
+
   // items en state pour pouvoir bouger en EDIT MODE
   const [items, setItems] = useState<MapItem[]>(MAP_ITEMS);
 
@@ -35,7 +40,6 @@ export default function Home() {
   );
 
   // --- Smooth camera (target -> current via lerp)
-  const targetRef = useRef({ x: 0, y: 0, scale: 1 });
   const rafRef = useRef<number | null>(null);
 
   const dragRef = useRef<{
@@ -60,16 +64,16 @@ export default function Home() {
 
   useEffect(() => {
     // init target = current
-    targetRef.current = viewRef.current;
+    baseTargetRef.current = viewRef.current;
   }, []);
 
   useEffect(() => {
     // boucle rAF: rapproche view vers target (smooth)
     const tick = () => {
-      const t = targetRef.current;
+      const t = hoverTargetRef.current ?? baseTargetRef.current;
       const v = viewRef.current;
 
-      const ease = 0.18; // + petit = + smooth (0.12 à 0.22)
+      const ease = hoverTargetRef.current ? 0.12 : 0.18; // + petit = + smooth
 
       const nx = v.x + (t.x - v.x) * ease;
       const ny = v.y + (t.y - v.y) * ease;
@@ -99,7 +103,7 @@ export default function Home() {
 
     const initial = { x: rect.width / 2, y: rect.height / 2, scale: 1 };
     setView(initial);
-    targetRef.current = initial;
+    baseTargetRef.current = initial;
   }, []);
 
   useEffect(() => {
@@ -120,11 +124,59 @@ export default function Home() {
     return () => window.removeEventListener("keydown", handler);
   }, []);
 
+  useEffect(() => {
+    if (!openItem) return;
+    hoverIdRef.current = null;
+    hoverTargetRef.current = null;
+    hoverLockRef.current = null;
+  }, [openItem]);
+
   const screenToWorld = (sx: number, sy: number) => {
-    const v = targetRef.current; // on se base sur la "target" pour cohérence
+    const v = hoverTargetRef.current ?? baseTargetRef.current; // target active pour cohérence
     const wx = (sx - v.x) / v.scale;
     const wy = (sy - v.y) / v.scale;
     return { wx, wy };
+  };
+
+  const clearHover = () => {
+    hoverIdRef.current = null;
+    hoverTargetRef.current = null;
+    hoverLockRef.current = null;
+  };
+
+  const getItemFocusTarget = (item: MapItem) => {
+    const rect = viewportRef.current?.getBoundingClientRect();
+    if (!rect) return null;
+
+    const fallbackW = item.width ?? 360;
+    const fallbackH = item.height ?? Math.round(fallbackW * 0.62);
+
+    const padding = 0.12; // 12% de marge
+    const availableW = rect.width * (1 - padding * 2);
+    const availableH = rect.height * (1 - padding * 2);
+
+    const nextScale = clamp(
+      Math.min(availableW / fallbackW, availableH / fallbackH),
+      0.35,
+      4.8
+    );
+
+    const nextX = rect.width / 2 - item.x * nextScale;
+    const nextY = rect.height / 2 - item.y * nextScale;
+
+    return { x: nextX, y: nextY, scale: nextScale };
+  };
+
+  const handleItemEnter = (item: MapItem, event: React.PointerEvent) => {
+    if (editMode || openItem) return;
+    if (hoverIdRef.current === item.id) return;
+
+    const nextTarget = getItemFocusTarget(item);
+    if (!nextTarget) return;
+
+    hoverIdRef.current = item.id;
+    hoverTargetRef.current = nextTarget;
+    hoverLockRef.current = { x: event.clientX, y: event.clientY };
   };
 
   const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
@@ -136,18 +188,45 @@ export default function Home() {
     // si on clique un node: en edit, c'est géré côté node. sinon ça ouvre la modale
     if ((event.target as HTMLElement).closest("[data-node]")) return;
 
+    clearHover();
+
     dragRef.current = {
       active: true,
       startX: event.clientX,
       startY: event.clientY,
-      originX: targetRef.current.x,
-      originY: targetRef.current.y,
+      originX: baseTargetRef.current.x,
+      originY: baseTargetRef.current.y,
       mode: { kind: "pan" }
     };
     viewportRef.current?.setPointerCapture(event.pointerId);
   };
 
   const handlePointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (!dragRef.current.active && hoverIdRef.current && hoverLockRef.current) {
+      const dx = event.clientX - hoverLockRef.current.x;
+      const dy = event.clientY - hoverLockRef.current.y;
+      const moved = Math.hypot(dx, dy) > 8;
+
+      if (moved) {
+        const el = document.elementFromPoint(event.clientX, event.clientY) as HTMLElement | null;
+        const nodeEl = el?.closest("[data-node]") as HTMLElement | null;
+        const nextId = nodeEl?.getAttribute("data-node-id");
+
+        if (!nextId) {
+          clearHover();
+        } else if (nextId !== hoverIdRef.current) {
+          const nextItem = items.find((it) => it.id === nextId);
+          if (nextItem) {
+            handleItemEnter(nextItem, event);
+          } else {
+            clearHover();
+          }
+        } else {
+          hoverLockRef.current = { x: event.clientX, y: event.clientY };
+        }
+      }
+    }
+
     if (!dragRef.current.active) return;
 
     const dx = event.clientX - dragRef.current.startX;
@@ -156,7 +235,7 @@ export default function Home() {
     if (dragRef.current.mode.kind === "pan") {
       const nextX = dragRef.current.originX + dx;
       const nextY = dragRef.current.originY + dy;
-      targetRef.current = { ...targetRef.current, x: nextX, y: nextY };
+      baseTargetRef.current = { ...baseTargetRef.current, x: nextX, y: nextY };
       return;
     }
 
@@ -188,12 +267,14 @@ export default function Home() {
     const rect = viewportRef.current?.getBoundingClientRect();
     if (!rect) return;
 
+    if (hoverTargetRef.current) clearHover();
+
     const pointerX = event.clientX - rect.left;
     const pointerY = event.clientY - rect.top;
 
     const isPinchZoom = event.ctrlKey;
 
-    const t = targetRef.current;
+    const t = baseTargetRef.current;
     const currentScale = t.scale;
 
     if (isPinchZoom) {
@@ -210,12 +291,12 @@ export default function Home() {
       const nextX = pointerX - worldX * nextScale;
       const nextY = pointerY - worldY * nextScale;
 
-      targetRef.current = { x: nextX, y: nextY, scale: nextScale };
+      baseTargetRef.current = { x: nextX, y: nextY, scale: nextScale };
       return;
     }
 
     // Pan 2 doigts (sans cliquer)
-    targetRef.current = {
+    baseTargetRef.current = {
       ...t,
       x: t.x - event.deltaX,
       y: t.y - event.deltaY
@@ -237,8 +318,8 @@ export default function Home() {
       active: true,
       startX: event.clientX,
       startY: event.clientY,
-      originX: targetRef.current.x,
-      originY: targetRef.current.y,
+      originX: baseTargetRef.current.x,
+      originY: baseTargetRef.current.y,
       mode: { kind: "item", id: item.id, offsetX, offsetY }
     };
 
@@ -266,7 +347,8 @@ export default function Home() {
           }
         }
       : {
-          onClick: () => setOpenItem(item)
+          onClick: () => setOpenItem(item),
+          onPointerEnter: (event: React.PointerEvent) => handleItemEnter(item, event)
         };
 
     if (item.type === "logo" && item.src) {
@@ -285,6 +367,7 @@ export default function Home() {
           className="node node-media"
           style={style}
           data-node
+          data-node-id={item.id}
           aria-label="Ouvrir l'image"
           {...commonProps}
         >
@@ -301,6 +384,7 @@ export default function Home() {
           className="node node-media"
           style={style}
           data-node
+          data-node-id={item.id}
           aria-label="Ouvrir la vidéo"
           {...commonProps}
         >
@@ -318,6 +402,7 @@ export default function Home() {
           className="node node-text"
           style={style}
           data-node
+          data-node-id={item.id}
           aria-label={`Ouvrir ${item.title || "texte"}`}
           {...commonProps}
         >
@@ -336,6 +421,7 @@ export default function Home() {
           className="node node-text"
           style={style}
           data-node
+          data-node-id={item.id}
           aria-label="Ouvrir les dates"
           {...commonProps}
         >
