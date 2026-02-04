@@ -6,7 +6,6 @@
   --red-bright: #ff1e49;
   --red-dark: #4d0010;
   --cream: #f2e6e8;
-  --shadow: 0 18px 40px rgba(176, 0, 24, 0.35);
 }
 
 * {
@@ -35,27 +34,91 @@ button {
   min-height: 100vh;
 }
 
+/* =========================
+   VIEWPORT / FOND MATIÈRE
+   ========================= */
+
 .viewport {
   position: relative;
   width: 100vw;
   height: 100vh;
   overflow: hidden;
-  background: #000;
   cursor: grab;
   touch-action: none;
+  isolation: isolate;
+  background: #000;
 }
 
 .viewport:active {
   cursor: grabbing;
 }
 
+/* fondu rouge très subtil dans le noir */
+.viewport::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+
+  background:
+    radial-gradient(
+      900px 700px at 65% 35%,
+      rgba(255, 30, 73, 0.08),
+      rgba(0, 0, 0, 0) 60%
+    ),
+    radial-gradient(
+      900px 700px at 25% 75%,
+      rgba(176, 0, 24, 0.06),
+      rgba(0, 0, 0, 0) 62%
+    ),
+    radial-gradient(
+      1200px 900px at 50% 50%,
+      rgba(0, 0, 0, 0),
+      rgba(0, 0, 0, 0.85) 70%
+    ),
+    #000;
+}
+
+/* grain fin très léger */
+.viewport::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.04;
+  mix-blend-mode: overlay;
+
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      rgba(255, 255, 255, 0.05) 0 1px,
+      rgba(0, 0, 0, 0) 1px 2px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.04) 0 1px,
+      rgba(0, 0, 0, 0) 1px 3px
+    );
+}
+
+/* =========================
+   WORLD
+   ========================= */
+
 .world {
   position: absolute;
   inset: 0;
+  z-index: 1;
   transform: translate(var(--tx), var(--ty)) scale(var(--scale));
   transform-origin: 0 0;
   will-change: transform;
 }
+
+/* =========================
+   NODES
+   ========================= */
 
 .node {
   position: absolute;
@@ -70,36 +133,83 @@ button {
   outline: none;
 }
 
+/* =========================
+   LOGO
+   ========================= */
+
 .node-logo {
   cursor: default;
   z-index: 3;
 }
 
 .node-logo img {
-  width: 300%;
+  width: 400%;
   display: block;
   filter: drop-shadow(0 0 22px rgba(255, 30, 73, 0.35));
   animation: breathe 6s ease-in-out infinite;
 }
 
-.node-media img,
-.node-media video {
-  display: block;
-  width: 100%;
-  height: 100%;
-  /* border-radius: 8px; */
-  /* box-shadow: 0 20px 45px rgba(0, 0, 0, 0.55), 0 0 30px rgba(176, 0, 24, 0.3); */
-  object-fit: contain;
-  background: #040102;
-}
-
-.node-media video {
-  background: #140006;
-}
+/* =========================
+   MEDIA (IMAGES / VIDÉOS)
+   ========================= */
+/* =========================
+   MEDIA (IMAGES / VIDÉOS) — FANTOMATIQUE
+   ========================= */
 
 .node-media {
   z-index: 1;
+  position: absolute;
+  overflow: visible;
 }
+
+.node-media::after {
+  content: "";
+  position: absolute;
+  inset: -28px;
+  pointer-events: none;
+  z-index: 0;
+
+  background: radial-gradient(
+    ellipse at center,
+    rgba(0,0,0,0.0) 40%,
+    rgba(0,0,0,0.65) 78%,
+    rgba(0,0,0,0.0) 100%
+  );
+
+  filter: blur(18px);
+  opacity: 0.55;
+}
+
+.node-media img,
+.node-media video {
+  position: relative;
+  z-index: 1;
+
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border-radius: 0;
+  background: transparent;
+
+  opacity: 0.62;
+  filter: brightness(0.72) contrast(0.82) saturate(0.78);
+
+  box-shadow: 0 22px 90px rgba(0,0,0,0.45);
+
+  transition: opacity 0.8s ease, filter 0.8s ease;
+}
+
+.node-media:hover img,
+.node-media:hover video {
+  opacity: 0.92;
+  filter: brightness(0.92) contrast(0.95) saturate(0.95);
+}
+
+
+/* =========================
+   TEXT NODES
+   ========================= */
 
 .node-text {
   z-index: 2;
@@ -112,7 +222,6 @@ button {
   line-height: 1.5;
   text-align: left;
   border: none;
-  /* border: 1px solid rgba(255, 30, 73, 0.55); */
   box-shadow: 0 18px 35px rgba(0, 0, 0, 0.45);
   min-height: 180px;
 }
@@ -125,6 +234,9 @@ button {
   margin-top: 0.45rem;
 }
 
+/* =========================
+   MODAL
+   ========================= */
 
 .modal {
   position: fixed;
@@ -144,7 +256,6 @@ button {
   max-height: 86vh;
   overflow: auto;
   background: #090004;
-  /* border: 1px solid rgba(255, 30, 73, 0.45); */
   box-shadow: 0 30px 80px rgba(0, 0, 0, 0.55);
   padding: 2rem;
   color: var(--red-bright);
@@ -156,36 +267,30 @@ button {
   justify-content: space-between;
   gap: 1rem;
   margin-bottom: 1.5rem;
-  color: var(--red-bright);
 }
 
 .modal-title {
-  /* font-family: "Cinzel", "Times New Roman", serif; */
   text-transform: uppercase;
   letter-spacing: 0.24em;
-  color: var(--red-bright);
   font-size: 0.95rem;
 }
 
 .modal-close {
   background: transparent;
-  /* border: 1px solid rgba(255, 30, 73, 0.6); */
-  color: var(--cream);
+  border: none;
+  color: var(--red-bright);
   padding: 0.4rem 0.7rem;
   letter-spacing: 0.2em;
   text-transform: uppercase;
   cursor: pointer;
   font-size: 0.55rem;
-  color: var(--red-bright);
 }
 
 .modal-text {
   line-height: 1.5;
-  color: var(--red-bright);
   text-transform: uppercase;
   font-size: 0.9rem;
   letter-spacing: 0.08em;
-  text-align: left;
 }
 
 .modal-text p {
@@ -208,20 +313,9 @@ button {
   width: 100%;
 }
 
-@keyframes breathe {
-  0% {
-    transform: scale(1);
-    opacity: 0.9;
-  }
-  50% {
-    transform: scale(1.06);
-    opacity: 1;
-  }
-  100% {
-    transform: scale(1);
-    opacity: 0.9;
-  }
-}
+/* =========================
+   EDIT HUD
+   ========================= */
 
 .edit-hud {
   position: fixed;
@@ -268,6 +362,10 @@ button {
   font-size: 10px;
 }
 
+/* =========================
+   LABELS
+   ========================= */
+
 .node-label {
   position: absolute;
   left: 50%;
@@ -281,4 +379,23 @@ button {
   padding: 4px 6px;
   pointer-events: none;
   white-space: nowrap;
+}
+
+/* =========================
+   ANIMATION
+   ========================= */
+
+@keyframes breathe {
+  0% {
+    transform: scale(1);
+    opacity: 0.9;
+  }
+  50% {
+    transform: scale(1.06);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 0.9;
+  }
 }
