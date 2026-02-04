@@ -67,8 +67,7 @@ button {
 }
 
 .node:focus-visible {
-  outline: 2px solid rgba(255, 30, 73, 0.6);
-  outline-offset: 4px;
+  outline: none;
 }
 
 .node-logo {
@@ -108,9 +107,9 @@ button {
   color: var(--red-bright);
   padding: 0.8rem 0.9rem;
   text-transform: uppercase;
-  letter-spacing: 0.1em;
-  font-size: 0.6rem;
-  line-height: 1.4;
+  letter-spacing: 0.09em;
+  font-size: 0.72rem;
+  line-height: 1.5;
   text-align: left;
   border: none;
   /* border: 1px solid rgba(255, 30, 73, 0.55); */
@@ -141,7 +140,7 @@ button {
 
 .modal-card {
   position: relative;
-  width: min(980px, 92vw);
+  width: min(1200px, 94vw);
   max-height: 86vh;
   overflow: auto;
   background: #090004;
@@ -181,13 +180,20 @@ button {
 }
 
 .modal-text {
-  display: grid;
-  gap: 0.9rem;
-  line-height: 1.4;
+  line-height: 1.5;
   color: var(--red-bright);
   text-transform: uppercase;
-  font-size: 0.6rem;
-  letter-spacing: 0.1em;
+  font-size: 0.9rem;
+  letter-spacing: 0.08em;
+  text-align: left;
+}
+
+.modal-text p {
+  margin: 0;
+}
+
+.modal-text p + p {
+  margin-top: 0.45rem;
 }
 
 .modal-card img,
