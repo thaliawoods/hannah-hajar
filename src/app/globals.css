@@ -234,6 +234,21 @@ button {
   margin-top: 0.45rem;
 }
 
+.node-title {
+  color: var(--red-bright);
+  text-transform: uppercase;
+  letter-spacing: 0.28em;
+
+  /* 👇 taille du titre */
+font-size: 2rem;
+letter-spacing: 0.3em;
+
+  line-height: 1.1;
+
+  text-align: left;
+  pointer-events: none;
+}
+
 /* =========================
    MODAL
    ========================= */
@@ -399,3 +414,4 @@ button {
     opacity: 0.9;
   }
 }
+

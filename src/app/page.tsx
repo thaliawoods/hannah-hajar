@@ -1,3 +1,4 @@
+// src/app/page.tsx
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -76,7 +77,7 @@ export default function Home() {
       const t = hoverTargetRef.current ?? baseTargetRef.current;
       const v = viewRef.current;
 
-      const ease = hoverTargetRef.current ? 0.06 : 0.18; // + petit = + smooth
+      const ease = hoverTargetRef.current ? 0.06 : 0.18;
 
       const nx = v.x + (t.x - v.x) * ease;
       const ny = v.y + (t.y - v.y) * ease;
@@ -133,7 +134,7 @@ export default function Home() {
   }, [openItem]);
 
   const screenToWorld = (sx: number, sy: number) => {
-    const v = hoverTargetRef.current ?? baseTargetRef.current; // target active pour cohérence
+    const v = hoverTargetRef.current ?? baseTargetRef.current;
     const wx = (sx - v.x) / v.scale;
     const wy = (sy - v.y) / v.scale;
     return { wx, wy };
@@ -157,7 +158,7 @@ export default function Home() {
     const fallbackW = item.width ?? 360;
     const fallbackH = item.height ?? Math.round(fallbackW * 0.62);
 
-    const padding = 0.12; // 12% de marge
+    const padding = 0.12;
     const availableW = rect.width * (1 - padding * 2);
     const availableH = rect.height * (1 - padding * 2);
 
@@ -175,6 +176,7 @@ export default function Home() {
 
   const startHoverDelay = (item: MapItem, event: React.PointerEvent) => {
     if (editMode || openItem) return;
+
     if (hoverIdRef.current === item.id || hoverPendingIdRef.current === item.id) {
       hoverLockRef.current = { x: event.clientX, y: event.clientY };
       return;
@@ -215,12 +217,11 @@ export default function Home() {
   };
 
   const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
-    // retry autoplay
     if (audioRef.current && audioRef.current.paused) {
       audioRef.current.play().catch(() => undefined);
     }
 
-    // si on clique un node: en edit, c'est géré côté node. sinon ça ouvre la modale
+    // si on clique un node: géré côté node (open modale / edit)
     if ((event.target as HTMLElement).closest("[data-node]")) return;
 
     clearHover();
@@ -237,6 +238,7 @@ export default function Home() {
   };
 
   const handlePointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    // gestion hover caméra (quand on n’est pas en drag)
     if (!dragRef.current.active) {
       const lock = hoverLockRef.current;
       const moved = !lock || Math.hypot(event.clientX - lock.x, event.clientY - lock.y) > 8;
@@ -251,11 +253,8 @@ export default function Home() {
             clearHover();
           } else if (nextId !== hoverIdRef.current) {
             const nextItem = items.find((it) => it.id === nextId);
-            if (nextItem) {
-              startHoverDelay(nextItem, event);
-            } else {
-              clearHover();
-            }
+            if (nextItem) startHoverDelay(nextItem, event);
+            else clearHover();
           } else {
             hoverLockRef.current = { x: event.clientX, y: event.clientY };
           }
@@ -264,19 +263,14 @@ export default function Home() {
             clearHover();
           } else if (nextId !== hoverPendingIdRef.current) {
             const nextItem = items.find((it) => it.id === nextId);
-            if (nextItem) {
-              startHoverDelay(nextItem, event);
-            } else {
-              clearHover();
-            }
+            if (nextItem) startHoverDelay(nextItem, event);
+            else clearHover();
           } else {
             hoverLockRef.current = { x: event.clientX, y: event.clientY };
           }
         } else if (nextId) {
           const nextItem = items.find((it) => it.id === nextId);
-          if (nextItem) {
-            startHoverDelay(nextItem, event);
-          }
+          if (nextItem) startHoverDelay(nextItem, event);
         }
       }
     }
@@ -358,7 +352,6 @@ export default function Home() {
   };
 
   const startItemDrag = (event: React.PointerEvent, item: MapItem) => {
-    // empêcher le click d’ouvrir la modale en edit
     event.preventDefault();
     event.stopPropagation();
 
@@ -448,8 +441,8 @@ export default function Home() {
       );
     }
 
+    // ✅ TEXT: sur la map = TITRE UNIQUEMENT, clic = ouvre modale
     if (item.type === "text" && item.lines) {
-      const preview = item.lines.slice(0, item.previewLines ?? 2);
       return (
         <button
           key={item.id}
@@ -460,14 +453,13 @@ export default function Home() {
           aria-label={`Ouvrir ${item.title || "texte"}`}
           {...commonProps}
         >
-          {preview.map((line) => (
-            <p key={line}>{line}</p>
-          ))}
+          <div className="node-title">{item.title ?? item.id}</div>
           {editMode ? <div className="node-label">{label}</div> : null}
         </button>
       );
     }
 
+    // ✅ DATES: sur la map = "Dates" uniquement, clic = ouvre modale
     if (item.type === "dates") {
       return (
         <button
@@ -479,9 +471,7 @@ export default function Home() {
           aria-label="Ouvrir les dates"
           {...commonProps}
         >
-          {DATE_LINES.slice(0, 2).map((line) => (
-            <p key={line}>{line}</p>
-          ))}
+          <div className="node-title">{item.title ?? "Dates"}</div>
           {editMode ? <div className="node-label">{label}</div> : null}
         </button>
       );
@@ -491,8 +481,7 @@ export default function Home() {
   };
 
   const renderModalContent = (item: MapItem) => {
-    if (item.type === "image" && item.src)
-      return <img src={item.src} alt="Hannah Hajar" />;
+    if (item.type === "image" && item.src) return <img src={item.src} alt="Hannah Hajar" />;
     if (item.type === "video" && item.src) return <video src={item.src} controls autoPlay />;
     if (item.type === "audio" && item.src) return <audio src={item.src} controls autoPlay />;
 
@@ -603,7 +592,12 @@ export default function Home() {
 
       {/* Modale normale (désactivée en edit) */}
       {!editMode && openItem ? (
-        <div className="modal" role="dialog" aria-modal="true" onClick={() => setOpenItem(null)}>
+        <div
+          className="modal"
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setOpenItem(null)}
+        >
           <div className="modal-card" onClick={(event) => event.stopPropagation()}>
             <div className="modal-header">
               {openItem.title ? <div className="modal-title">{openItem.title}</div> : <div />}
