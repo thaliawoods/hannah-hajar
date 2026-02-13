@@ -77,7 +77,9 @@ Le cœur du projet repose sur un composant central `Experience` qui orchestre :
 
 Structure simplifiée :
 
-txt
+Structure simplifiée :
+
+```txt
 src/
  ├── app/
  ├── components/
@@ -88,6 +90,7 @@ src/
  │    ├── data/
  │    ├── hooks/
  │    └── math/
+```
 
 La logique de distance et d’intensité est isolée dans des modules dédiés afin de conserver une architecture claire et évolutive.
 
