@@ -173,7 +173,7 @@ git lfs pull
 
 ---
 
-## Auteur
+## Autrice
 
 Thalia Woods  
 Développeuse créative — systèmes interactifs  
