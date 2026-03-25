@@ -5,6 +5,7 @@ import {
   LINKS_LINES,
   TECH_RIDER_LINES
 } from "@/lib/data/concerts";
+import { cdnUrl } from "@/lib/bunny";
 
 export type MapItem = {
   id: string;
@@ -35,24 +36,30 @@ const place = (col: number, row: number) => {
 };
 
 const images = [
-  "/images/hannah-01.jpg",
-  "/images/hannah-02.jpg",
-  "/images/hannah-03.jpg",
-  "/images/hannah-04.png",
-  "/images/hannah-05.png",
-  "/images/hannah-06.png",
-  "/images/hannah-07.png",
-  "/images/hannah-08.png",
-  "/images/hannah-09.png",
-  "/images/hannah-10.png",
-  "/images/hannah-11.png",
-  "/images/hannah-12.png",
-  "/images/hannah-13.png",
-  "/images/hannah-14.png",
-  "/images/hannah-15.png",
-  "/images/hannah-16.png",
-  "/images/hannah-17.png",
-  "/images/hannah-18.png"
+  cdnUrl("/2025_03_22%20Ed%27E_Hannah%20Ajar_18.JPG"),
+  cdnUrl("/2025_03_22%20Ed%27E_Hannah%20Ajar_23.JPG"),
+  cdnUrl("/2025_03_22%20Ed%27E_Hannah%20Ajar_37.JPG"),
+  cdnUrl("/8.png"),
+  cdnUrl("/de661b02-e20f-442c-8760-84a4761eead9.JPG"),
+  cdnUrl("/DSC03563.jpeg"),
+  cdnUrl("/DSC03571.jpeg"),
+  cdnUrl("/DSC03583.jpeg"),
+  cdnUrl("/DSC03585.jpeg"),
+  cdnUrl("/DSC03592.jpeg"),
+  cdnUrl("/DSC03613.jpeg"),
+  cdnUrl("/DSC03614.jpeg"),
+  cdnUrl("/DSC03616.jpeg"),
+  cdnUrl("/DSC03617.jpeg"),
+  cdnUrl("/DSC03621.jpeg"),
+  cdnUrl("/DSC1.JPG"),
+  cdnUrl("/hh_pix_doc.JPEG"),
+  cdnUrl("/hh8.jpg"),
+  cdnUrl("/IMG_2858.JPG"),
+  cdnUrl("/IMG_2861.JPG"),
+  cdnUrl("/IMG_2862.JPG"),
+  cdnUrl("/IMG_2864.JPG"),
+  cdnUrl("/IMG_9177.JPG"),
+  cdnUrl("/relais.JPG")
 ];
 
 const mainSlots = [
@@ -181,7 +188,7 @@ export const MAP_ITEMS: MapItem[] = [
   withPatchedXY({
     id: "live",
     type: "video",
-    src: "/video/live-select.mp4",
+    src: cdnUrl("/DSC2.MP4"),
     title: "Live Select",
     ...place(1, 2),
     width: 520,
@@ -190,7 +197,7 @@ export const MAP_ITEMS: MapItem[] = [
   withPatchedXY({
     id: "concert-1",
     type: "video",
-    src: "/video/concert_1.MOV",
+    src: cdnUrl("/IMG_0393.MOV"),
     title: "Concert 1",
     ...place(8, -2),
     width: 420,
@@ -199,7 +206,7 @@ export const MAP_ITEMS: MapItem[] = [
   withPatchedXY({
     id: "concert-2",
     type: "video",
-    src: "/video/concert_2.MOV",
+    src: cdnUrl("/IMG_0394.MOV"),
     title: "Concert 2",
     ...place(10, -2),
     width: 320,
@@ -208,7 +215,7 @@ export const MAP_ITEMS: MapItem[] = [
   withPatchedXY({
     id: "concert-3",
     type: "video",
-    src: "/video/concert_3.MOV",
+    src: cdnUrl("/IMG_6586.MOV"),
     title: "Concert 3",
     ...place(12, -2),
     width: 360,
@@ -217,7 +224,7 @@ export const MAP_ITEMS: MapItem[] = [
   withPatchedXY({
     id: "concert-4",
     type: "video",
-    src: "/video/concert_4.MOV",
+    src: cdnUrl("/IMG_6588.MOV"),
     title: "Concert 4",
     ...place(14, -2),
     width: 300,
@@ -226,7 +233,7 @@ export const MAP_ITEMS: MapItem[] = [
   withPatchedXY({
     id: "concert-5",
     type: "video",
-    src: "/video/concert_5.MOV",
+    src: cdnUrl("/IMG_6590.MOV"),
     title: "Concert 5",
     ...place(16, -2),
     width: 360,

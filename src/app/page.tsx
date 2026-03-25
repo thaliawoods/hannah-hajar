@@ -4,6 +4,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import { DATE_LINES, MAP_ITEMS, type MapItem } from "@/lib/data/world";
+import { cdnUrl } from "@/lib/bunny";
 
 const clamp = (value: number, min: number, max: number) =>
   Math.min(max, Math.max(min, value));
