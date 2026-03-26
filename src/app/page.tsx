@@ -5,6 +5,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import { DATE_LINES, MAP_ITEMS, type MapItem } from "@/lib/data/world";
 import { cdnUrl } from "@/lib/bunny";
+import ThreeBackground from "@/components/ThreeBackground";
+import CursorParticles from "@/components/CursorParticles";
 
 const clamp = (value: number, min: number, max: number) =>
   Math.min(max, Math.max(min, value));
@@ -15,10 +17,10 @@ type DragMode =
 
 export default function Home() {
   const viewportRef = useRef<HTMLDivElement | null>(null);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const worldRef    = useRef<HTMLDivElement | null>(null);
+  const audioRef    = useRef<HTMLAudioElement | null>(null);
 
-  const [view, setView] = useState({ x: 0, y: 0, scale: 1 });
-  const viewRef = useRef(view);
+  const viewRef = useRef({ x: 0, y: 0, scale: 1 });
 
   const baseTargetRef = useRef({ x: 0, y: 0, scale: 1 });
   const hoverTargetRef = useRef<{ x: number; y: number; scale: number } | null>(null);
@@ -26,12 +28,13 @@ export default function Home() {
   const hoverLockRef = useRef<{ x: number; y: number } | null>(null);
   const hoverPendingIdRef = useRef<string | null>(null);
   const hoverTimerRef = useRef<number | null>(null);
-  const hoverDelayMs = 300;
+  const hoverDelayMs = 160;
 
   // items en state pour pouvoir bouger en EDIT MODE
   const [items, setItems] = useState<MapItem[]>(MAP_ITEMS);
 
   const [openItem, setOpenItem] = useState<MapItem | null>(null);
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
 
   const editMode = useMemo(() => {
     if (typeof window === "undefined") return false;
@@ -54,18 +57,26 @@ export default function Home() {
     originX: number;
     originY: number;
     mode: DragMode;
+    lastX: number;
+    lastY: number;
+    lastT: number;
+    velX: number;
+    velY: number;
   }>({
     active: false,
     startX: 0,
     startY: 0,
     originX: 0,
     originY: 0,
-    mode: { kind: "pan" }
+    mode: { kind: "pan" },
+    lastX: 0,
+    lastY: 0,
+    lastT: 0,
+    velX: 0,
+    velY: 0,
   });
 
-  useEffect(() => {
-    viewRef.current = view;
-  }, [view]);
+  const momentumRef = useRef<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
     // init target = current
@@ -75,22 +86,36 @@ export default function Home() {
   useEffect(() => {
     // boucle rAF: rapproche view vers target (smooth)
     const tick = () => {
+      // Apply momentum when not dragging and not in hover focus
+      const isPanning = dragRef.current.active && dragRef.current.mode.kind === "pan";
+      if (!isPanning && !hoverTargetRef.current && momentumRef.current) {
+        const m = momentumRef.current;
+        m.x *= 0.9;
+        m.y *= 0.9;
+        if (Math.abs(m.x) < 0.2 && Math.abs(m.y) < 0.2) {
+          momentumRef.current = null;
+        } else {
+          baseTargetRef.current = {
+            ...baseTargetRef.current,
+            x: baseTargetRef.current.x + m.x,
+            y: baseTargetRef.current.y + m.y,
+          };
+        }
+      }
+
       const t = hoverTargetRef.current ?? baseTargetRef.current;
       const v = viewRef.current;
 
-      const ease = hoverTargetRef.current ? 0.06 : 0.18;
+      // During pan drag: track 1:1 (no lerp lag). For hover focus: slow ease. Idle: snappy.
+      const ease = isPanning ? 1.0 : hoverTargetRef.current ? 0.055 : 0.14;
 
       const nx = v.x + (t.x - v.x) * ease;
       const ny = v.y + (t.y - v.y) * ease;
       const ns = v.scale + (t.scale - v.scale) * ease;
 
-      const done =
-        Math.abs(t.x - nx) < 0.05 &&
-        Math.abs(t.y - ny) < 0.05 &&
-        Math.abs(t.scale - ns) < 0.0005;
-
-      if (!done) {
-        setView({ x: nx, y: ny, scale: ns });
+      viewRef.current = { x: nx, y: ny, scale: ns };
+      if (worldRef.current) {
+        worldRef.current.style.transform = `translate(${nx}px,${ny}px) scale(${ns})`;
       }
 
       rafRef.current = requestAnimationFrame(tick);
@@ -106,9 +131,30 @@ export default function Home() {
     const rect = viewportRef.current?.getBoundingClientRect();
     if (!rect) return;
 
-    const initial = { x: rect.width / 2, y: rect.height / 2, scale: 1 };
-    setView(initial);
-    baseTargetRef.current = initial;
+    // Logo renders at 1200×456px (node width 300 × img 400%)
+    // Target: logo fills ~95% of viewport width, images bleed off edges
+    const logoW = 1200;
+    const logoH = 456;
+    const scale = Math.min(
+      (rect.width  * 0.96) / logoW,
+      (rect.height * 0.78) / logoH,
+      1.6
+    );
+    const centered = { x: rect.width / 2, y: rect.height / 2, scale };
+    // Start off-center (shifted left and slightly up, smaller scale)
+    const offset = {
+      x: rect.width / 2 - rect.width * 0.28,
+      y: rect.height / 2 + rect.height * 0.12,
+      scale: scale * 0.8,
+    };
+    viewRef.current = offset;
+    if (worldRef.current) {
+      worldRef.current.style.transform =
+        `translate(${offset.x}px,${offset.y}px) scale(${offset.scale})`;
+    }
+    baseTargetRef.current = offset;
+    // After a short pause, lerp to center via the existing RAF loop
+    setTimeout(() => { baseTargetRef.current = centered; }, 150);
   }, []);
 
   useEffect(() => {
@@ -134,6 +180,7 @@ export default function Home() {
     clearHover();
   }, [openItem]);
 
+
   const screenToWorld = (sx: number, sy: number) => {
     const v = hoverTargetRef.current ?? baseTargetRef.current;
     const wx = (sx - v.x) / v.scale;
@@ -150,6 +197,7 @@ export default function Home() {
       window.clearTimeout(hoverTimerRef.current);
       hoverTimerRef.current = null;
     }
+    setHoveredId(null);
   };
 
   const getItemFocusTarget = (item: MapItem) => {
@@ -213,6 +261,7 @@ export default function Home() {
 
       hoverPendingIdRef.current = null;
       hoverIdRef.current = item.id;
+      setHoveredId(item.id);
       hoverTargetRef.current = nextTarget;
     }, hoverDelayMs);
   };
@@ -227,19 +276,25 @@ export default function Home() {
 
     clearHover();
 
+    momentumRef.current = null;
     dragRef.current = {
       active: true,
       startX: event.clientX,
       startY: event.clientY,
       originX: baseTargetRef.current.x,
       originY: baseTargetRef.current.y,
-      mode: { kind: "pan" }
+      mode: { kind: "pan" },
+      lastX: event.clientX,
+      lastY: event.clientY,
+      lastT: performance.now(),
+      velX: 0,
+      velY: 0,
     };
     viewportRef.current?.setPointerCapture(event.pointerId);
   };
 
   const handlePointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
-    // gestion hover caméra (quand on n’est pas en drag)
+    // gestion hover caméra (quand on n'est pas en drag)
     if (!dragRef.current.active) {
       const lock = hoverLockRef.current;
       const moved = !lock || Math.hypot(event.clientX - lock.x, event.clientY - lock.y) > 8;
@@ -285,6 +340,16 @@ export default function Home() {
       const nextX = dragRef.current.originX + dx;
       const nextY = dragRef.current.originY + dy;
       baseTargetRef.current = { ...baseTargetRef.current, x: nextX, y: nextY };
+      // Track velocity for momentum
+      const now = performance.now();
+      const dt = now - dragRef.current.lastT;
+      if (dt > 0) {
+        dragRef.current.velX = (event.clientX - dragRef.current.lastX) / dt;
+        dragRef.current.velY = (event.clientY - dragRef.current.lastY) / dt;
+      }
+      dragRef.current.lastX = event.clientX;
+      dragRef.current.lastY = event.clientY;
+      dragRef.current.lastT = now;
       return;
     }
 
@@ -303,6 +368,14 @@ export default function Home() {
 
   const handlePointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
     if (!dragRef.current.active) return;
+    // Launch momentum if panning fast enough
+    if (dragRef.current.mode.kind === "pan") {
+      const { velX, velY } = dragRef.current;
+      const speed = Math.hypot(velX, velY);
+      if (speed > 0.3) {
+        momentumRef.current = { x: velX * 120, y: velY * 120 };
+      }
+    }
     dragRef.current.active = false;
     viewportRef.current?.releasePointerCapture(event.pointerId);
   };
@@ -317,6 +390,7 @@ export default function Home() {
     if (!rect) return;
 
     if (hoverTargetRef.current) clearHover();
+    momentumRef.current = null;
 
     const pointerX = event.clientX - rect.left;
     const pointerY = event.clientY - rect.top;
@@ -368,7 +442,12 @@ export default function Home() {
       startY: event.clientY,
       originX: baseTargetRef.current.x,
       originY: baseTargetRef.current.y,
-      mode: { kind: "item", id: item.id, offsetX, offsetY }
+      mode: { kind: "item", id: item.id, offsetX, offsetY },
+      lastX: event.clientX,
+      lastY: event.clientY,
+      lastT: performance.now(),
+      velX: 0,
+      velY: 0,
     };
 
     viewportRef.current?.setPointerCapture(event.pointerId);
@@ -380,7 +459,8 @@ export default function Home() {
       top: item.y,
       width: item.width ? `${item.width}px` : undefined,
       height: item.height ? `${item.height}px` : undefined,
-      transform: `translate(-50%, -50%) rotate(${item.rotate ?? 0}deg)`
+      transform: `translate(-50%, -50%) rotate(${item.rotate ?? 0}deg)`,
+      ["--base-rot" as string]: `${item.rotate ?? 0}deg`,
     };
 
     const label = item.title || item.label || item.id;
@@ -416,6 +496,7 @@ export default function Home() {
           style={style}
           data-node
           data-node-id={item.id}
+          {...(hoveredId === item.id ? { "data-awakened": "" } : {})}
           aria-label="Ouvrir l'image"
           {...commonProps}
         >
@@ -433,6 +514,7 @@ export default function Home() {
           style={style}
           data-node
           data-node-id={item.id}
+          {...(hoveredId === item.id ? { "data-awakened": "" } : {})}
           aria-label="Ouvrir la vidéo"
           {...commonProps}
         >
@@ -526,6 +608,7 @@ export default function Home() {
 
   return (
     <main className="page">
+      <ThreeBackground />
       <audio ref={audioRef} src="/audio/drone.mp3" loop autoPlay preload="auto" />
 
       <div
@@ -536,16 +619,7 @@ export default function Home() {
         onPointerUp={handlePointerUp}
         onWheel={handleWheel}
       >
-        <div
-          className="world"
-          style={
-            {
-              "--tx": `${view.x}px`,
-              "--ty": `${view.y}px`,
-              "--scale": view.scale
-            } as CSSProperties
-          }
-        >
+        <div className="world" ref={worldRef}>
           {items.map((item) => renderNode(item))}
         </div>
       </div>
@@ -554,7 +628,7 @@ export default function Home() {
       {editMode ? (
         <div className="edit-hud">
           <div>
-            <strong>EDIT MODE</strong> — ajoute <code>?edit=1</code> à l’URL
+            <strong>EDIT MODE</strong> — ajoute <code>?edit=1</code> à l'URL
           </div>
           <div style={{ marginTop: 6, opacity: 0.9 }}>
             Clique un contenu pour le sélectionner. Drag & drop pour le déplacer.
@@ -591,8 +665,28 @@ export default function Home() {
         </div>
       ) : null}
 
-      {/* Modale normale (désactivée en edit) */}
-      {!editMode && openItem ? (
+      {/* Image / Video → red fullscreen modal */}
+      {!editMode && openItem && (openItem.type === "image" || openItem.type === "video") ? (
+        <div
+          className="modal-red"
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setOpenItem(null)}
+        >
+          <button className="modal-red-close" onClick={() => setOpenItem(null)}>
+            Fermer&nbsp;·&nbsp;Esc
+          </button>
+          {openItem.type === "image" && openItem.src && (
+            <img src={openItem.src} alt="Hannah Hajar" onClick={e => e.stopPropagation()} />
+          )}
+          {openItem.type === "video" && openItem.src && (
+            <video src={openItem.src} controls autoPlay onClick={e => e.stopPropagation()} />
+          )}
+        </div>
+      ) : null}
+
+      {/* Text / Dates / Audio → dark modal */}
+      {!editMode && openItem && openItem.type !== "image" && openItem.type !== "video" ? (
         <div
           className="modal"
           role="dialog"
@@ -610,6 +704,16 @@ export default function Home() {
           </div>
         </div>
       ) : null}
+      <div className="tutorial">
+        {openItem
+          ? <>Press&nbsp;Esc&nbsp;or&nbsp;click&nbsp;outside&nbsp;to&nbsp;close</>
+          : <>Drag to explore&nbsp;&nbsp;·&nbsp;&nbsp;Scroll or pinch to zoom&nbsp;&nbsp;·&nbsp;&nbsp;Hover to reveal&nbsp;&nbsp;·&nbsp;&nbsp;Click to open</>
+        }
+      </div>
+
+      <CursorParticles isOnRed={
+        !!openItem && (openItem.type === "image" || openItem.type === "video")
+      } />
     </main>
   );
 }
