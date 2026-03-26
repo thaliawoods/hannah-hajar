@@ -628,8 +628,7 @@ export default function Home() {
       {editMode ? (
         <div className="edit-hud">
           <div>
-            <strong>EDIT MODE</strong> — ajoute <code>?edit=1</code> à l'URL
-          </div>
+<strong>EDIT MODE</strong> — ajoute <code>?edit=1</code> à l&apos;URL          </div>
           <div style={{ marginTop: 6, opacity: 0.9 }}>
             Clique un contenu pour le sélectionner. Drag & drop pour le déplacer.
           </div>
