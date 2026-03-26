@@ -19,6 +19,7 @@ body {
   height: 100%;
   background: var(--black);
   color: var(--cream);
+  cursor: none;
 }
 
 body {
@@ -280,9 +281,9 @@ button {
 .node-title {
   color: var(--red-bright);
   text-transform: uppercase;
-  letter-spacing: 0.28em;
-  font-size: 2rem;
   letter-spacing: 0.3em;
+  font-size: 2.8rem;
+  font-weight: 700;
   line-height: 1.1;
   text-align: left;
   pointer-events: none;
@@ -332,6 +333,8 @@ button {
 .modal-close {
   background: transparent;
   border: none;
+  outline: none;
+  box-shadow: none;
   color: var(--red-bright);
   padding: 0.4rem 0.7rem;
   letter-spacing: 0.2em;
@@ -394,21 +397,17 @@ button {
   position: fixed;
   top: 1.2rem;
   right: 1.5rem;
-  background: #000;
-  border: 1px solid var(--red);
-  color: var(--red);
+  background: transparent;
+  border: none;
+  outline: none;
+  box-shadow: none;
+  color: var(--red-bright);
   padding: 0.5rem 1.1rem;
   letter-spacing: 0.22em;
   text-transform: uppercase;
   cursor: pointer;
   font-size: 0.6rem;
   z-index: 31;
-  transition: background 0.25s, color 0.25s;
-}
-
-.modal-red-close:hover {
-  background: var(--red);
-  color: #000;
 }
 
 /* =========================
@@ -421,7 +420,7 @@ button {
   left: 50%;
   transform: translateX(-50%);
   z-index: 15;
-  color: rgba(242, 230, 232, 0.42);
+  color: rgba(255, 30, 73, 0.75);
   font-size: 0.58rem;
   letter-spacing: 0.3em;
   text-transform: uppercase;
