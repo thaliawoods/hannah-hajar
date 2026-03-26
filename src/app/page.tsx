@@ -132,7 +132,6 @@ export default function Home() {
     if (!rect) return;
 
     // Logo renders at 1200×456px (node width 300 × img 400%)
-    // Target: logo fills ~95% of viewport width, images bleed off edges
     const logoW = 1200;
     const logoH = 456;
     const scale = Math.min(
@@ -140,21 +139,14 @@ export default function Home() {
       (rect.height * 0.78) / logoH,
       1.6
     );
-    const centered = { x: rect.width / 2, y: rect.height / 2, scale };
-    // Start off-center (shifted left and slightly up, smaller scale)
-    const offset = {
-      x: rect.width / 2 - rect.width * 0.28,
-      y: rect.height / 2 + rect.height * 0.12,
-      scale: scale * 0.8,
-    };
-    viewRef.current = offset;
+    // Start centered — offset 450px (half of 1200px img - half of 300px node) for visual center
+    const centered = { x: rect.width / 2 - 450 * scale, y: rect.height / 2, scale };
+    viewRef.current = centered;
     if (worldRef.current) {
       worldRef.current.style.transform =
-        `translate(${offset.x}px,${offset.y}px) scale(${offset.scale})`;
+        `translate(${centered.x}px,${centered.y}px) scale(${centered.scale})`;
     }
-    baseTargetRef.current = offset;
-    // After a short pause, lerp to center via the existing RAF loop
-    setTimeout(() => { baseTargetRef.current = centered; }, 150);
+    baseTargetRef.current = centered;
   }, []);
 
   useEffect(() => {
@@ -609,6 +601,14 @@ export default function Home() {
   return (
     <main className="page">
       <ThreeBackground />
+      {/* Black center — keeps logo/menu area clean behind the smoke */}
+      <div style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 0,
+        pointerEvents: "none",
+        background: "radial-gradient(ellipse 96% 64% at 50% 40%, #040102 0%, #040102 32%, rgba(4,1,2,0.55) 52%, transparent 72%)",
+      }} />
       <audio ref={audioRef} src="/audio/drone.mp3" loop autoPlay preload="auto" />
 
       <div
@@ -674,7 +674,7 @@ export default function Home() {
           onClick={() => setOpenItem(null)}
         >
           <button className="modal-red-close" onClick={() => setOpenItem(null)}>
-            Fermer&nbsp;·&nbsp;Esc
+            FERMER · ESC
           </button>
           {openItem.type === "image" && openItem.src && (
             <img src={openItem.src} alt="Hannah Hajar" onClick={e => e.stopPropagation()} />
@@ -697,7 +697,7 @@ export default function Home() {
             <div className="modal-header">
               {openItem.title ? <div className="modal-title">{openItem.title}</div> : <div />}
               <button className="modal-close" onClick={() => setOpenItem(null)}>
-                Fermer
+                FERMER · ESC
               </button>
             </div>
             {renderModalContent(openItem)}
@@ -706,7 +706,7 @@ export default function Home() {
       ) : null}
       <div className="tutorial">
         {openItem
-          ? <>Press&nbsp;Esc&nbsp;or&nbsp;click&nbsp;outside&nbsp;to&nbsp;close</>
+          ? <>FERMER · ESC</>
           : <>Drag to explore&nbsp;&nbsp;·&nbsp;&nbsp;Scroll or pinch to zoom&nbsp;&nbsp;·&nbsp;&nbsp;Hover to reveal&nbsp;&nbsp;·&nbsp;&nbsp;Click to open</>
         }
       </div>
