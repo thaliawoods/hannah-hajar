@@ -46,14 +46,14 @@ button {
   cursor: grab;
   touch-action: none;
   isolation: isolate;
-  background: #000;
+  background: transparent;
 }
 
 .viewport:active {
   cursor: grabbing;
 }
 
-/* fondu rouge très subtil dans le noir */
+/* fondu très subtil */
 .viewport::before {
   content: "";
   position: absolute;
@@ -64,20 +64,19 @@ button {
   background:
     radial-gradient(
       900px 700px at 65% 35%,
-      rgba(255, 30, 73, 0.08),
+      rgba(255, 30, 73, 0.06),
       rgba(0, 0, 0, 0) 60%
     ),
     radial-gradient(
       900px 700px at 25% 75%,
-      rgba(176, 0, 24, 0.06),
+      rgba(176, 0, 24, 0.04),
       rgba(0, 0, 0, 0) 62%
     ),
     radial-gradient(
       1200px 900px at 50% 50%,
       rgba(0, 0, 0, 0),
-      rgba(0, 0, 0, 0.85) 70%
-    ),
-    #000;
+      rgba(0, 0, 0, 0.6) 70%
+    );
 }
 
 /* grain fin très léger */
@@ -111,7 +110,6 @@ button {
   position: absolute;
   inset: 0;
   z-index: 1;
-  transform: translate(var(--tx), var(--ty)) scale(var(--scale));
   transform-origin: 0 0;
   will-change: transform;
 }
@@ -149,9 +147,6 @@ button {
   animation: breathe 6s ease-in-out infinite;
 }
 
-/* =========================
-   MEDIA (IMAGES / VIDÉOS)
-   ========================= */
 /* =========================
    MEDIA (IMAGES / VIDÉOS) — FANTOMATIQUE
    ========================= */
@@ -192,18 +187,66 @@ button {
   border-radius: 0;
   background: transparent;
 
-  opacity: 0.62;
-  filter: brightness(0.72) contrast(0.82) saturate(0.78);
+  opacity: 0.38;
+  filter: brightness(0.52) contrast(0.82) saturate(0.55);
 
   box-shadow: 0 22px 90px rgba(0,0,0,0.45);
 
-  transition: opacity 0.8s ease, filter 0.8s ease;
+  transition: opacity 2.5s ease, filter 2.5s ease;
 }
 
+/* Image: slow return */
+.node-media:has(img) img {
+  transition: opacity 2.5s ease, filter 2.5s ease;
+}
+
+/* Video: fast spring return */
+.node-media:has(video) img,
+.node-media:has(video) video {
+  transition: opacity 0.45s ease, filter 0.45s ease;
+}
+
+/* Hover (non-awakened) — subtle preview */
 .node-media:hover img,
 .node-media:hover video {
-  opacity: 0.92;
-  filter: brightness(0.92) contrast(0.95) saturate(0.95);
+  opacity: 0.62;
+  filter: brightness(0.72) contrast(0.9) saturate(0.78);
+}
+
+/* ==============================
+   AWAKENED STATE (hover reveal)
+   ============================== */
+
+/* Image: rotate toward upright + reveal (1.8s in) */
+[data-awakened].node-media:has(img) {
+  transform: translate(-50%, -50%) rotate(0deg) !important;
+  transition: transform 1.8s ease !important;
+}
+[data-awakened].node-media:has(img) img {
+  opacity: 0.92 !important;
+  filter: brightness(0.92) contrast(0.97) saturate(0.95) !important;
+  transition: opacity 1.8s ease, filter 1.8s ease !important;
+}
+
+/* Image: slow tilt-back (2.5s return to base rotation) */
+.node-media:has(img) {
+  transition: transform 2.5s ease !important;
+}
+
+/* Video: rotate one full turn, land straight (0deg), slower */
+[data-awakened].node-media:has(video) {
+  transform: translate(-50%, -50%) rotate(360deg) !important;
+  transition: transform 1.4s cubic-bezier(0.25, 0.1, 0.25, 1) !important;
+}
+[data-awakened].node-media:has(video) video {
+  opacity: 0.92 !important;
+  filter: brightness(0.92) contrast(0.97) saturate(0.95) !important;
+  transition: opacity 0.45s ease, filter 0.45s ease !important;
+}
+
+/* Video: fast spring return */
+.node-media:has(video) {
+  transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1) !important;
 }
 
 
@@ -238,19 +281,15 @@ button {
   color: var(--red-bright);
   text-transform: uppercase;
   letter-spacing: 0.28em;
-
-  /* 👇 taille du titre */
-font-size: 2rem;
-letter-spacing: 0.3em;
-
+  font-size: 2rem;
+  letter-spacing: 0.3em;
   line-height: 1.1;
-
   text-align: left;
   pointer-events: none;
 }
 
 /* =========================
-   MODAL
+   MODAL (text / dates)
    ========================= */
 
 .modal {
@@ -326,6 +365,68 @@ letter-spacing: 0.3em;
 
 .modal-card audio {
   width: 100%;
+}
+
+/* =========================
+   MODAL RED (fullscreen image / video)
+   ========================= */
+
+.modal-red {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  background: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.modal-red img,
+.modal-red video {
+  max-width: 100vw;
+  max-height: 100vh;
+  object-fit: contain;
+  cursor: default;
+}
+
+.modal-red-close {
+  position: fixed;
+  top: 1.2rem;
+  right: 1.5rem;
+  background: #000;
+  border: 1px solid var(--red);
+  color: var(--red);
+  padding: 0.5rem 1.1rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  cursor: pointer;
+  font-size: 0.6rem;
+  z-index: 31;
+  transition: background 0.25s, color 0.25s;
+}
+
+.modal-red-close:hover {
+  background: var(--red);
+  color: #000;
+}
+
+/* =========================
+   TUTORIAL HINT
+   ========================= */
+
+.tutorial {
+  position: fixed;
+  bottom: 2rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 15;
+  color: rgba(242, 230, 232, 0.42);
+  font-size: 0.58rem;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  pointer-events: none;
+  white-space: nowrap;
 }
 
 /* =========================
@@ -414,4 +515,3 @@ letter-spacing: 0.3em;
     opacity: 0.9;
   }
 }
-
