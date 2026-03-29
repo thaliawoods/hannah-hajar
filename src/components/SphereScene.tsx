@@ -56,6 +56,23 @@ function sunflowerSphere(index: number, total: number, radius: number): THREE.Ve
     Math.sin(theta) * radiusAtY * radius,
   );
 }
+// Apply the same geoid deformation to any position on the sphere
+function applyGeoid(v: THREE.Vector3): THREE.Vector3 {
+  const r = v.length();
+  if (r === 0) return v;
+  const lat = Math.asin(v.y / r);
+  const lon = Math.atan2(v.z, v.x);
+  const flatFactor = 1.0 - 0.15 * Math.sin(lat) * Math.sin(lat);
+  const bump = 1.0
+    + 0.015 * Math.sin(3.0 * lat) * Math.cos(2.0 * lon)
+    + 0.01 * Math.sin(5.0 * lat + 1.0) * Math.cos(4.0 * lon + 0.5)
+    + 0.008 * Math.cos(7.0 * lon + 2.0) * Math.sin(2.0 * lat);
+  const newR = r * flatFactor * bump;
+  const scale = newR / r;
+  return new THREE.Vector3(v.x * scale * 1.3, v.y * flatFactor, v.z * scale * 1.3);
+}
+
+
 
 // ─── Particles (instanced, cheap) ───────────────────────────────────────────
 function Particles() {
@@ -91,23 +108,45 @@ function Particles() {
 
 // ─── Sphere ─────────────────────────────────────────────────────────────────
 const SPHERE_VERT = "varying vec3 vNormal; varying vec3 vPosition; void main() { vNormal = normalize(normalMatrix * normal); vPosition = (modelViewMatrix * vec4(position, 1.0)).xyz; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }";
-const SPHERE_FRAG = "uniform float uTime; varying vec3 vNormal; varying vec3 vPosition; void main() { gl_FragColor = vec4(0.01, 0.002, 0.005, 1.0); }";
+const SPHERE_FRAG = "uniform float uTime; varying vec3 vNormal; varying vec3 vPosition; void main() { float edge = abs(dot(vNormal, normalize(-vPosition))); float alpha = smoothstep(0.0, 0.7, edge) * 0.7; gl_FragColor = vec4(0.01, 0.002, 0.005, alpha); }";
 
 function CentralSphere() {
   const matRef = useRef<THREE.ShaderMaterial>(null!);
+  const geo = useMemo(() => {
+    const g = new THREE.SphereGeometry(SPHERE_R, 64, 48);
+    const pos = g.attributes.position;
+    for (let i = 0; i < pos.count; i++) {
+      const x = pos.getX(i);
+      const y = pos.getY(i);
+      const z = pos.getZ(i);
+      const r = Math.sqrt(x * x + y * y + z * z);
+      const lat = Math.asin(y / r);
+      const lon = Math.atan2(z, x);
+      // Geoid: more flattened at poles, wider at equator
+      const flatFactor = 1.0 - 0.15 * Math.sin(lat) * Math.sin(lat);
+      // Subtle irregular bumps like a real geoid
+      const bump = 1.0
+        + 0.015 * Math.sin(3.0 * lat) * Math.cos(2.0 * lon)
+        + 0.01 * Math.sin(5.0 * lat + 1.0) * Math.cos(4.0 * lon + 0.5)
+        + 0.008 * Math.cos(7.0 * lon + 2.0) * Math.sin(2.0 * lat);
+      const newR = r * flatFactor * bump;
+      const scale = newR / r;
+      pos.setXYZ(i, x * scale * 1.3, y * flatFactor, z * scale * 1.3);
+    }
+    pos.needsUpdate = true;
+    g.computeVertexNormals();
+    return g;
+  }, []);
 
   useFrame(({ clock }) => {
     if (matRef.current) matRef.current.uniforms.uTime.value = clock.getElapsedTime();
-
   });
   return (
     <group>
-      <mesh>
-        <sphereGeometry args={[SPHERE_R, 64, 64]} />
+      <mesh geometry={geo}>
         <shaderMaterial ref={matRef} vertexShader={SPHERE_VERT} fragmentShader={SPHERE_FRAG}
-          uniforms={{ uTime: { value: 0 } }} />
+          uniforms={{ uTime: { value: 0 } }} transparent depthWrite={false} />
       </mesh>
-
     </group>
   );
 }
@@ -355,7 +394,7 @@ function SceneContent({ onSelect }: { onSelect: (item: ContentItem) => void }) {
       const layout = textLayout[ti];
       const ny = layout.y / CONTENT_R;
       const z = Math.sqrt(Math.max(0.01, 1 - ny * ny)) * CONTENT_R;
-      return new THREE.Vector3(layout.x, layout.y, z);
+      return applyGeoid(new THREE.Vector3(layout.x, layout.y, z));
     });
 
     // Media items: sunflower on sphere, excluding polar caps so nothing hides at top/bottom
@@ -365,11 +404,11 @@ function SceneContent({ onSelect }: { onSelect: (item: ContentItem) => void }) {
       const y = 0.75 - (i / (total - 1)) * 1.5;
       const radiusAtY = Math.sqrt(1 - y * y);
       const theta = GOLDEN_ANGLE * (i + 1);
-      return new THREE.Vector3(
+      return applyGeoid(new THREE.Vector3(
         Math.cos(theta) * radiusAtY * CONTENT_R,
         y * CONTENT_R,
         Math.sin(theta) * radiusAtY * CONTENT_R,
-      );
+      ));
     });
 
     return ALL_ITEMS.map((item) => {
