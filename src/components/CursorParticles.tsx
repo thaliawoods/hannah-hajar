@@ -72,7 +72,7 @@ export default function CursorParticles({ isOnRed }: Props) {
       uniforms: { uColor: { value: new THREE.Vector3(...RED_PALETTE[1]) } },
       transparent: true,
       depthWrite:  false,
-      blending:    THREE.AdditiveBlending,
+      blending:    THREE.NormalBlending,
     });
 
     scene.add(new THREE.Points(geo, mat));
