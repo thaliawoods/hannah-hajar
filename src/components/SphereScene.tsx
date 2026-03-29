@@ -5,6 +5,7 @@ import { Canvas, useFrame, useThree, useLoader } from "@react-three/fiber";
 import { OrbitControls, Html, useTexture } from "@react-three/drei";
 import * as THREE from "three";
 import { IMAGE_ITEMS, VIDEO_ITEMS } from "@/lib/data/media";
+import CursorParticles from "@/components/CursorParticles";
 import { ABSTRACT_LINES, BIO_LINES, TECH_RIDER_LINES, LINKS_LINES, CONCERTS } from "@/lib/data/concerts";
 
 type ContentItem = {
@@ -119,7 +120,7 @@ function Logo() {
   texture.colorSpace = THREE.SRGBColorSpace;
 
   const aspect = texture.image ? texture.image.width / texture.image.height : 3;
-  const logoH = 0.6;
+  const logoH = 0.9;
   const logoW = logoH * aspect;
 
   useFrame(({ clock }) => {
@@ -169,8 +170,8 @@ function ImagePanel({ item, position, onSelect }: {
 
   return (
     <mesh ref={meshRef} position={position} rotation={rotation}
-      onPointerEnter={() => { setHovered(true); document.body.style.cursor = "pointer"; }}
-      onPointerLeave={() => { setHovered(false); document.body.style.cursor = "grab"; }}
+      onPointerEnter={() => { setHovered(true);  }}
+      onPointerLeave={() => { setHovered(false);  }}
       onClick={() => onSelect(item)}
     >
       <planeGeometry args={[w, h]} />
@@ -212,8 +213,8 @@ function VideoPanel({ item, position, onSelect }: {
 
   return (
     <group ref={groupRef} position={position} rotation={rotation}
-      onPointerEnter={() => { setHovered(true); document.body.style.cursor = "pointer"; }}
-      onPointerLeave={() => { setHovered(false); document.body.style.cursor = "grab"; }}
+      onPointerEnter={() => { setHovered(true);  }}
+      onPointerLeave={() => { setHovered(false);  }}
       onClick={() => onSelect(item)}
     >
       <mesh>
@@ -258,8 +259,8 @@ function TextPanel({ item, position, onSelect }: {
 
   return (
     <group position={position} rotation={rotation} ref={ref as any}
-      onPointerEnter={() => { setHovered(true); document.body.style.cursor = "pointer"; }}
-      onPointerLeave={() => { setHovered(false); document.body.style.cursor = "grab"; }}
+      onPointerEnter={() => { setHovered(true);  }}
+      onPointerLeave={() => { setHovered(false);  }}
       onClick={() => onSelect(item)}
     >
       <mesh>
@@ -508,7 +509,7 @@ export default function SphereScene() {
       <Canvas
         camera={{ position: [0, 0, 9], fov: 55, near: 0.1, far: 100 }}
         gl={{ antialias: true, alpha: false, powerPreference: "high-performance" }}
-        style={{ cursor: "grab", position: "relative", zIndex: 1 }}
+        style={{ position: "relative", zIndex: 1 }}
         onCreated={({ gl }) => { gl.setClearColor("#040102"); gl.toneMapping = THREE.ACESFilmicToneMapping; gl.toneMappingExposure = 0.8; }}
       >
         <SceneContent onSelect={handleSelect} />
@@ -550,6 +551,7 @@ export default function SphereScene() {
       }}>
         Orbit to explore · Hover to reveal · Click to open
       </div>
+      <CursorParticles />
     </div>
   );
 }
