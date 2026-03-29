@@ -158,7 +158,7 @@ function Logo() {
   const texture = useTexture("/images/logo-hh.svg");
   texture.colorSpace = THREE.SRGBColorSpace;
 
-  const aspect = texture.image ? texture.image.width / texture.image.height : 3;
+  const aspect = texture.image ? (texture.image as HTMLImageElement).width / (texture.image as HTMLImageElement).height : 3;
   const logoH = 0.9;
   const logoW = logoH * aspect;
 
