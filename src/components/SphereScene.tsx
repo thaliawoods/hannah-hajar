@@ -24,10 +24,20 @@ const TEXT_ITEMS: ContentItem[] = [
   { id: "dates", type: "text", title: "Dates", lines: CONCERTS.map(c => [c.date, c.city, c.venue].filter(Boolean).join(" \u2014 ")) },
 ];
 
-const MEDIA_ITEMS: ContentItem[] = [
-  ...IMAGE_ITEMS.map((item, i) => ({ id: "img-" + i, type: "image" as const, src: item.src, label: item.label })),
-  ...VIDEO_ITEMS.slice(0, 6).map((item, i) => ({ id: "vid-" + i, type: "video" as const, src: item.src, label: item.label })),
-];
+const IMAGE_LIST: ContentItem[] = IMAGE_ITEMS.map((item, i) => ({ id: "img-" + i, type: "image" as const, src: item.src, label: item.label }));
+const VIDEO_LIST: ContentItem[] = VIDEO_ITEMS.slice(0, 6).map((item, i) => ({ id: "vid-" + i, type: "video" as const, src: item.src, label: item.label }));
+
+// Interleave videos among images so they spread across the sphere
+const MEDIA_ITEMS: ContentItem[] = [];
+const vidInterval = Math.floor(IMAGE_LIST.length / (VIDEO_LIST.length + 1));
+let vidIdx = 0;
+for (let i = 0; i < IMAGE_LIST.length; i++) {
+  MEDIA_ITEMS.push(IMAGE_LIST[i]);
+  if (vidIdx < VIDEO_LIST.length && (i + 1) % vidInterval === 0) {
+    MEDIA_ITEMS.push(VIDEO_LIST[vidIdx++]);
+  }
+}
+while (vidIdx < VIDEO_LIST.length) MEDIA_ITEMS.push(VIDEO_LIST[vidIdx++]);
 
 const ALL_ITEMS: ContentItem[] = [...TEXT_ITEMS, ...MEDIA_ITEMS];
 
@@ -80,44 +90,52 @@ function Particles() {
 
 // ─── Sphere ─────────────────────────────────────────────────────────────────
 const SPHERE_VERT = "varying vec3 vNormal; varying vec3 vPosition; void main() { vNormal = normalize(normalMatrix * normal); vPosition = (modelViewMatrix * vec4(position, 1.0)).xyz; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }";
-const SPHERE_FRAG = "uniform float uTime; varying vec3 vNormal; varying vec3 vPosition; void main() { float fresnel = pow(1.0 - abs(dot(vNormal, normalize(-vPosition))), 2.0); float pulse = 0.75 + 0.25 * sin(uTime * 0.6); vec3 color = mix(vec3(0.12, 0.0, 0.03), vec3(0.7, 0.0, 0.1), fresnel * pulse); gl_FragColor = vec4(color, 0.08 + fresnel * 0.45 * pulse); }";
+const SPHERE_FRAG = "uniform float uTime; varying vec3 vNormal; varying vec3 vPosition; void main() { gl_FragColor = vec4(0.01, 0.002, 0.005, 1.0); }";
 
 function CentralSphere() {
   const matRef = useRef<THREE.ShaderMaterial>(null!);
-  const wireRef = useRef<THREE.Mesh>(null!);
+
   useFrame(({ clock }) => {
     if (matRef.current) matRef.current.uniforms.uTime.value = clock.getElapsedTime();
-    if (wireRef.current) wireRef.current.rotation.y = clock.getElapsedTime() * 0.02;
+
   });
   return (
     <group>
       <mesh>
         <sphereGeometry args={[SPHERE_R, 64, 64]} />
         <shaderMaterial ref={matRef} vertexShader={SPHERE_VERT} fragmentShader={SPHERE_FRAG}
-          uniforms={{ uTime: { value: 0 } }} transparent depthWrite={false} />
+          uniforms={{ uTime: { value: 0 } }} />
       </mesh>
-      <mesh ref={wireRef}>
-        <icosahedronGeometry args={[SPHERE_R + 0.05, 2]} />
-        <meshBasicMaterial wireframe color="#2a0006" transparent opacity={0.1} />
-      </mesh>
+
     </group>
   );
 }
 
-// ─── Logo (stays centered, faces camera) ────────────────────────────────────
+// ─── Logo (stays centered, faces camera, scales with zoom) ──────────────────
 function Logo() {
-  const ref = useRef<THREE.Group>(null!);
+  const ref = useRef<THREE.Mesh>(null!);
   const { camera } = useThree();
-  useFrame(() => {
-    if (ref.current) ref.current.lookAt(camera.position);
+  const texture = useTexture("/images/logo-hh.svg");
+  texture.colorSpace = THREE.SRGBColorSpace;
+
+  const aspect = texture.image ? texture.image.width / texture.image.height : 3;
+  const logoH = 0.6;
+  const logoW = logoH * aspect;
+
+  useFrame(({ clock }) => {
+    if (ref.current) {
+      ref.current.lookAt(camera.position);
+      // Breathing animation
+      const breathe = 1 + Math.sin(clock.getElapsedTime() * 0.8) * 0.04;
+      ref.current.scale.setScalar(breathe);
+    }
   });
+
   return (
-    <group ref={ref} position={[0, 0, SPHERE_R + 0.3]}>
-      <Html center distanceFactor={4} style={{ pointerEvents: "none", userSelect: "none" }}>
-        <img src="/images/logo-hh.svg" alt="Hannah Hajar" draggable={false}
-          style={{ width: "300px", filter: "drop-shadow(0 0 20px rgba(255,30,73,0.4))" }} />
-      </Html>
-    </group>
+    <mesh ref={ref} position={[0, 0, SPHERE_R + 0.3]}>
+      <planeGeometry args={[logoW, logoH]} />
+      <meshBasicMaterial map={texture} transparent depthWrite={false} side={THREE.DoubleSide} />
+    </mesh>
   );
 }
 
@@ -172,11 +190,11 @@ function SafeImagePanel(props: { item: ContentItem; position: THREE.Vector3; onS
   );
 }
 
-// ─── Video panel (just a label, click to open) ─────────────────────────────
+// ─── Video panel (HTML video element on sphere) ─────────────────────────────
 function VideoPanel({ item, position, onSelect }: {
   item: ContentItem; position: THREE.Vector3; onSelect: (item: ContentItem) => void;
 }) {
-  const meshRef = useRef<THREE.Mesh>(null!);
+  const groupRef = useRef<THREE.Group>(null!);
   const [hovered, setHovered] = useState(false);
 
   const rotation = useMemo(() => {
@@ -186,29 +204,32 @@ function VideoPanel({ item, position, onSelect }: {
   }, [position]);
 
   useFrame(() => {
-    if (!meshRef.current) return;
+    if (!groupRef.current) return;
     const target = hovered ? 1.12 : 1;
-    const s = meshRef.current.scale.x;
-    meshRef.current.scale.setScalar(s + (target - s) * 0.08);
+    const s = groupRef.current.scale.x;
+    groupRef.current.scale.setScalar(s + (target - s) * 0.08);
   });
 
   return (
-    <group position={position} rotation={rotation} ref={meshRef as any}
+    <group ref={groupRef} position={position} rotation={rotation}
       onPointerEnter={() => { setHovered(true); document.body.style.cursor = "pointer"; }}
       onPointerLeave={() => { setHovered(false); document.body.style.cursor = "grab"; }}
       onClick={() => onSelect(item)}
     >
       <mesh>
-        <planeGeometry args={[1.4, 0.9]} />
-        <meshBasicMaterial color="#0a0002" transparent opacity={hovered ? 0.6 : 0.25} side={THREE.DoubleSide} />
+        <planeGeometry args={[1.6, 1.1]} />
+        <meshBasicMaterial transparent opacity={0} side={THREE.DoubleSide} />
       </mesh>
-      <Html center distanceFactor={6} style={{ pointerEvents: "none", userSelect: "none" }}>
-        <div style={{
-          color: "#ff1e49", fontFamily: "Space Grotesk, sans-serif", textTransform: "uppercase",
-          letterSpacing: "0.15em", textAlign: "center", fontSize: "11px", opacity: hovered ? 1 : 0.6,
-          transition: "opacity 0.4s",
-        }}>
-          {"\u25B6"} {item.label || "Video"}
+      <Html center distanceFactor={5} style={{ pointerEvents: "none", userSelect: "none" }}>
+        <div style={{ position: "relative", width: "180px" }}>
+          <video src={item.src} muted loop playsInline autoPlay preload="metadata"
+            style={{
+              width: "100%", height: "auto", objectFit: "cover", borderRadius: "2px",
+              opacity: hovered ? 0.9 : 0.55,
+              filter: hovered ? "brightness(0.9)" : "brightness(0.45) saturate(0.4)",
+              transition: "opacity 0.5s, filter 0.5s",
+            }} />
+
         </div>
       </Html>
     </group>
@@ -247,10 +268,10 @@ function TextPanel({ item, position, onSelect }: {
       </mesh>
       <Html center distanceFactor={5} style={{ pointerEvents: "none", userSelect: "none" }}>
         <div style={{
-          color: "#ff1e49", fontFamily: "Space Grotesk, sans-serif", textTransform: "uppercase",
-          letterSpacing: "0.25em", textAlign: "center", fontSize: "15px", fontWeight: 600,
-          opacity: hovered ? 1 : 0.75, transition: "opacity 0.4s",
-          textShadow: "0 0 20px rgba(255,30,73,0.3)",
+          color: "rgba(255, 30, 73, 0.55)", fontFamily: "'Enclav Acadam', 'Space Grotesk', sans-serif", textTransform: "uppercase",
+          letterSpacing: "0.25em", textAlign: "center", fontSize: "18px", fontWeight: 900,
+          opacity: hovered ? 1 : 0.85, transition: "opacity 0.4s, color 0.4s",
+          ...(hovered ? { color: "rgba(255, 30, 73, 0.85)" } : {}),
         }}>
           {item.title}
         </div>
@@ -259,6 +280,54 @@ function TextPanel({ item, position, onSelect }: {
   );
 }
 
+
+// ─── Smoke background (rendered on large sphere behind everything) ──────────
+const SMOKE_VERT = "varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }";
+const SMOKE_FRAG = [
+  "precision mediump float;",
+  "uniform float uTime;",
+  "varying vec2 vUv;",
+  "vec2 hash2(vec2 p) { p = vec2(dot(p,vec2(127.1,311.7)),dot(p,vec2(269.5,183.3))); return -1.0+2.0*fract(sin(p)*43758.5453123); }",
+  "float vnoise(vec2 p) { vec2 i=floor(p); vec2 f=fract(p); vec2 u=f*f*(3.0-2.0*f); float a=dot(hash2(i),f); float b=dot(hash2(i+vec2(1,0)),f-vec2(1,0)); float c=dot(hash2(i+vec2(0,1)),f-vec2(0,1)); float d=dot(hash2(i+vec2(1,1)),f-vec2(1,1)); return mix(mix(a,b,u.x),mix(c,d,u.x),u.y); }",
+  "float fbm(vec2 p) { float v=0.0; float a=0.5; vec2 shift=vec2(100.0); mat2 rot=mat2(cos(0.5),sin(0.5),-sin(0.5),cos(0.5)); for(int i=0;i<4;i++){v+=a*vnoise(p);p=rot*p*2.0+shift;a*=0.5;} return v; }",
+  "void main() {",
+  "  vec2 p = vUv * 2.0;",
+  "  float t = uTime * 0.04;",
+  "  vec2 q = vec2(fbm(p+t), fbm(p+vec2(5.2,1.3)+t*0.8));",
+  "  vec2 r = vec2(fbm(p+3.8*q+vec2(1.7,9.2)+t*0.6), fbm(p+3.8*q+vec2(8.3,2.8)+t*0.5));",
+  "  float f = fbm(p+5.0*r+t*0.2);",
+  "  f = f*0.5+0.5;",
+  "  vec3 cBlack = vec3(0.004,0.0005,0.002);",
+  "  vec3 cCrimson = vec3(0.06,0.0,0.015);",
+  "  vec3 cRed = vec3(0.14,0.0,0.03);",
+  "  vec3 cBright = vec3(0.22,0.0,0.04);",
+  "  vec3 col = cBlack;",
+  "  col = mix(col, cCrimson, smoothstep(0.22,0.48,f));",
+  "  col = mix(col, cRed, smoothstep(0.42,0.60,f)*0.45);",
+  "  col = mix(col, cBright, smoothstep(0.58,0.74,f)*0.18);",
+  "  gl_FragColor = vec4(col, 1.0);",
+  "}",
+].join("\n");
+
+function SmokeBackground() {
+  const matRef = useRef<THREE.ShaderMaterial>(null!);
+  useFrame(({ clock }) => {
+    if (matRef.current) matRef.current.uniforms.uTime.value = clock.getElapsedTime();
+  });
+  return (
+    <mesh>
+      <sphereGeometry args={[50, 32, 32]} />
+      <shaderMaterial
+        ref={matRef}
+        vertexShader={SMOKE_VERT}
+        fragmentShader={SMOKE_FRAG}
+        uniforms={{ uTime: { value: 0 } }}
+        side={THREE.BackSide}
+        depthWrite={false}
+      />
+    </mesh>
+  );
+}
 // ─── Slow rotation wrapper ──────────────────────────────────────────────────
 function RotatingGroup({ children }: { children: React.ReactNode }) {
   const ref = useRef<THREE.Group>(null!);
@@ -271,21 +340,56 @@ function RotatingGroup({ children }: { children: React.ReactNode }) {
 // ─── Scene ──────────────────────────────────────────────────────────────────
 function SceneContent({ onSelect }: { onSelect: (item: ContentItem) => void }) {
   const positions = useMemo(() => {
-    return ALL_ITEMS.map((_, i) => sunflowerSphere(i, ALL_ITEMS.length, CONTENT_R));
+    // Text items: centered above and below the logo, at front of sphere
+    // Order in TEXT_ITEMS: Bio(0), Abstract(1), Tech Rider(2), Links(3), Dates(4)
+    // Above: Abstract, Tech Rider  |  Below: Bio, Links, Dates
+    const textLayout = [
+      { y: -0.6, x: 0 },     // Bio - just below logo
+      { y: 1.0, x: -1.5 },   // Abstract - above logo left
+      { y: 1.0, x: 1.5 },    // Tech Rider - above logo right
+      { y: -1.2, x: -1.8 },  // Links - below left
+      { y: -1.2, x: 1.8 },   // Dates - below right
+    ];
+    const textPositions = TEXT_ITEMS.map((_, ti) => {
+      const layout = textLayout[ti];
+      const ny = layout.y / CONTENT_R;
+      const z = Math.sqrt(Math.max(0.01, 1 - ny * ny)) * CONTENT_R;
+      return new THREE.Vector3(layout.x, layout.y, z);
+    });
+
+    // Media items: sunflower on sphere, excluding polar caps so nothing hides at top/bottom
+    const mediaPositions = MEDIA_ITEMS.map((_, i) => {
+      const total = MEDIA_ITEMS.length;
+      // Constrain y to [-0.75, 0.75] to avoid poles
+      const y = 0.75 - (i / (total - 1)) * 1.5;
+      const radiusAtY = Math.sqrt(1 - y * y);
+      const theta = GOLDEN_ANGLE * (i + 1);
+      return new THREE.Vector3(
+        Math.cos(theta) * radiusAtY * CONTENT_R,
+        y * CONTENT_R,
+        Math.sin(theta) * radiusAtY * CONTENT_R,
+      );
+    });
+
+    return ALL_ITEMS.map((item) => {
+      if (item.type === "text") {
+        const ti = TEXT_ITEMS.findIndex(t => t.id === item.id);
+        return textPositions[ti];
+      }
+      const mi = MEDIA_ITEMS.findIndex(m => m.id === item.id);
+      return mediaPositions[mi];
+    });
   }, []);
 
   return (
     <>
+      <SmokeBackground />
       <ambientLight intensity={0.3} />
       <pointLight position={[0, 0, 0]} color="#ff1e49" intensity={3} distance={20} />
-      <fog attach="fog" args={["#040102", 14, 32]} />
 
       <RotatingGroup>
         <CentralSphere />
         {ALL_ITEMS.map((item, i) => {
-          if (item.type === "text") {
-            return <TextPanel key={item.id} item={item} position={positions[i]} onSelect={onSelect} />;
-          }
           if (item.type === "image" && item.src) {
             return <SafeImagePanel key={item.id} item={item} position={positions[i]} onSelect={onSelect} />;
           }
@@ -296,11 +400,16 @@ function SceneContent({ onSelect }: { onSelect: (item: ContentItem) => void }) {
         })}
       </RotatingGroup>
 
-      {/* Logo stays in center, NOT inside RotatingGroup */}
-      <Logo />
-      <Particles />
+      {/* Logo and menus stay fixed, NOT inside RotatingGroup */}
+      <Suspense fallback={null}><Logo /></Suspense>
+      {ALL_ITEMS.map((item, i) => {
+        if (item.type === "text") {
+          return <TextPanel key={item.id} item={item} position={positions[i]} onSelect={onSelect} />;
+        }
+        return null;
+      })}
       <OrbitControls enablePan={false} enableDamping dampingFactor={0.04}
-        rotateSpeed={0.35} minDistance={SPHERE_R + 2} maxDistance={SPHERE_R + 14} />
+        rotateSpeed={0.35} minDistance={SPHERE_R + 1.5} maxDistance={SPHERE_R + 14} />
     </>
   );
 }
@@ -321,10 +430,10 @@ function Modal({ item, onClose }: { item: ContentItem; onClose: () => void }) {
       }}>
         <button onClick={onClose} style={{
           position: "fixed", top: "1.2rem", right: "1.5rem", background: "transparent",
-          border: "none", color: "#ff1e49", padding: "0.5rem 1.1rem", letterSpacing: "0.22em",
+          border: "none", color: "rgba(255, 30, 73, 0.55)", padding: "0.5rem 1.1rem", letterSpacing: "0.22em",
           textTransform: "uppercase", cursor: "pointer", fontSize: "0.6rem",
-          fontFamily: "Space Grotesk, sans-serif", zIndex: 10000,
-        }}>FERMER \u00B7 ESC</button>
+          fontFamily: "Josafronde, Space Grotesk, sans-serif", zIndex: 10000,
+        }}>FERMER · ESC</button>
         {item.type === "image" && item.src && (
           <img src={item.src} alt={item.label || "Hannah Hajar"} onClick={e => e.stopPropagation()}
             style={{ maxWidth: "100vw", maxHeight: "100vh", objectFit: "contain", cursor: "default" }} />
@@ -344,17 +453,17 @@ function Modal({ item, onClose }: { item: ContentItem; onClose: () => void }) {
     }}>
       <div onClick={e => e.stopPropagation()} style={{
         width: "min(1200px, 94vw)", maxHeight: "86vh", overflow: "auto",
-        background: "#090004", boxShadow: "0 30px 80px rgba(0,0,0,0.55)", padding: "2rem", color: "#ff1e49",
+        background: "#090004", boxShadow: "0 30px 80px rgba(0,0,0,0.55)", padding: "2rem", color: "rgba(255, 30, 73, 0.55)",
       }}>
         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "1.5rem" }}>
-          {item.title && <div style={{ textTransform: "uppercase", letterSpacing: "0.24em", fontSize: "0.95rem" }}>{item.title}</div>}
+          {item.title && <div style={{ textTransform: "uppercase", letterSpacing: "0.3em", fontSize: "2.5rem", fontFamily: "'Enclav Acadam', sans-serif", fontWeight: 700 }}>{item.title}</div>}
           <button onClick={onClose} style={{
-            background: "transparent", border: "none", color: "#ff1e49", letterSpacing: "0.2em",
-            textTransform: "uppercase", cursor: "pointer", fontSize: "0.55rem", fontFamily: "Space Grotesk, sans-serif",
-          }}>FERMER \u00B7 ESC</button>
+            background: "transparent", border: "none", color: "rgba(255, 30, 73, 0.55)", letterSpacing: "0.2em",
+            textTransform: "uppercase", cursor: "pointer", fontSize: "0.55rem", fontFamily: "Josafronde, Space Grotesk, sans-serif",
+          }}>FERMER · ESC</button>
         </div>
         {item.lines && (
-          <div style={{ lineHeight: 1.5, textTransform: "uppercase", fontSize: "0.9rem", letterSpacing: "0.08em", fontFamily: "Space Grotesk, sans-serif" }}>
+          <div style={{ lineHeight: 1.5, textTransform: "uppercase", fontSize: "0.9rem", letterSpacing: "0.08em", fontFamily: "Josafronde, Space Grotesk, sans-serif" }}>
             {item.lines.map((line, i) => <p key={i} style={{ margin: i > 0 ? "0.45rem 0 0 0" : "0" }}>{line}</p>)}
           </div>
         )}
@@ -368,8 +477,21 @@ export default function SphereScene() {
   const audioRef = useRef<HTMLAudioElement>(null);
   const [openItem, setOpenItem] = useState<ContentItem | null>(null);
 
-  const handleSelect = useCallback((item: ContentItem) => setOpenItem(item), []);
-  const handleClose = useCallback(() => setOpenItem(null), []);
+  const [zoomingItem, setZoomingItem] = useState<ContentItem | null>(null);
+  const zoomTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleSelect = useCallback((item: ContentItem) => {
+    setZoomingItem(item);
+    // Zoom effect for 800ms then open modal
+    zoomTimerRef.current = setTimeout(() => {
+      setZoomingItem(null);
+      setOpenItem(item);
+    }, 800);
+  }, []);
+  const handleClose = useCallback(() => {
+    setOpenItem(null);
+    if (zoomTimerRef.current) clearTimeout(zoomTimerRef.current);
+  }, []);
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -384,21 +506,49 @@ export default function SphereScene() {
     <div style={{ position: "fixed", inset: 0, background: "#040102" }}>
       <audio ref={audioRef} src="/audio/drone.mp3" loop preload="auto" />
       <Canvas
-        camera={{ position: [0, 1, 14], fov: 55, near: 0.1, far: 100 }}
+        camera={{ position: [0, 0, 9], fov: 55, near: 0.1, far: 100 }}
         gl={{ antialias: true, alpha: false, powerPreference: "high-performance" }}
         style={{ cursor: "grab", position: "relative", zIndex: 1 }}
         onCreated={({ gl }) => { gl.setClearColor("#040102"); gl.toneMapping = THREE.ACESFilmicToneMapping; gl.toneMappingExposure = 0.8; }}
       >
         <SceneContent onSelect={handleSelect} />
       </Canvas>
+      {/* Ensure custom font is available for drei Html portals */}
+      <style dangerouslySetInnerHTML={{ __html: `
+        @font-face {
+          font-family: "Enclav Acadam";
+          src: url("/fonts/EnclavAcadam-Regular.woff2") format("woff2"),
+               url("/fonts/EnclavAcadam-Regular.woff") format("woff");
+          font-weight: 400;
+          font-style: normal;
+        }
+        @font-face {
+          font-family: "Josafronde";
+          src: url("/fonts/Josafronde-Regular.woff2") format("woff2"),
+               url("/fonts/Josafronde-Regular.woff") format("woff");
+          font-weight: 400;
+          font-style: normal;
+        }
+      `}} />
+      {/* Zoom effect overlay */}
+      {zoomingItem && (
+        <div style={{
+          position: "fixed", inset: 0, zIndex: 9998, background: "rgba(0,0,0,0)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          animation: "zoomIn 0.8s ease-in-out forwards",
+          pointerEvents: "none",
+        }}>
+          <style>{"@keyframes zoomIn { 0% { background: rgba(0,0,0,0); } 100% { background: rgba(0,0,0,0.95); } }"}</style>
+        </div>
+      )}
       {openItem && <Modal item={openItem} onClose={handleClose} />}
       <div style={{
         position: "fixed", bottom: "2rem", left: "50%", transform: "translateX(-50%)",
         color: "rgba(255, 30, 73, 0.55)", fontSize: "0.55rem", letterSpacing: "0.3em",
         textTransform: "uppercase", pointerEvents: "none", whiteSpace: "nowrap",
-        fontFamily: "Space Grotesk, sans-serif", zIndex: 10,
+        fontFamily: "Josafronde, Space Grotesk, sans-serif", zIndex: 10,
       }}>
-        Orbit to explore \u00B7 Hover to reveal \u00B7 Click to open
+        Orbit to explore · Hover to reveal · Click to open
       </div>
     </div>
   );
