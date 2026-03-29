@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useMemo, useCallback, useEffect, Suspense } from "react";
+import React, { useRef, useState, useMemo, useCallback, useEffect, Suspense } from "react";
 import { Canvas, useFrame, useThree, useLoader } from "@react-three/fiber";
 import { OrbitControls, Html, useTexture } from "@react-three/drei";
 import * as THREE from "three";
@@ -196,7 +196,7 @@ function ImagePanel({ item, position, onSelect }: {
   const texture = useTexture(item.src || "/images/logo-hh.svg");
   texture.colorSpace = THREE.SRGBColorSpace;
 
-  const aspect = texture.image ? texture.image.width / texture.image.height : 1;
+  const aspect = texture.image ? (texture.image as HTMLImageElement).width / (texture.image as HTMLImageElement).height : 1;
   const h = 1.4;
   const w = h * Math.min(aspect, 1.6);
 
@@ -222,11 +222,22 @@ function ImagePanel({ item, position, onSelect }: {
 }
 
 // Wrapper with error boundary for texture loading
+class ImageErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean }> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+  static getDerivedStateFromError() { return { hasError: true }; }
+  render() { return this.state.hasError ? null : this.props.children; }
+}
+
 function SafeImagePanel(props: { item: ContentItem; position: THREE.Vector3; onSelect: (item: ContentItem) => void }) {
   return (
-    <Suspense fallback={null}>
-      <ImagePanel {...props} />
-    </Suspense>
+    <ImageErrorBoundary>
+      <Suspense fallback={null}>
+        <ImagePanel {...props} />
+      </Suspense>
+    </ImageErrorBoundary>
   );
 }
 
