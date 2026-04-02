@@ -108,12 +108,12 @@ function Particles() {
 
 // ─── Sphere ─────────────────────────────────────────────────────────────────
 const SPHERE_VERT = "varying vec3 vNormal; varying vec3 vPosition; void main() { vNormal = normalize(normalMatrix * normal); vPosition = (modelViewMatrix * vec4(position, 1.0)).xyz; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }";
-const SPHERE_FRAG = "uniform float uTime; varying vec3 vNormal; varying vec3 vPosition; void main() { float edge = abs(dot(vNormal, normalize(-vPosition))); float alpha = smoothstep(0.0, 0.7, edge) * 0.7; gl_FragColor = vec4(0.01, 0.002, 0.005, alpha); }";
+const SPHERE_FRAG = "uniform float uTime; varying vec3 vNormal; varying vec3 vPosition; void main() { float edge = abs(dot(vNormal, normalize(-vPosition))); float alpha = pow(edge, 3.0) * 0.6; gl_FragColor = vec4(0.01, 0.002, 0.005, alpha); }";
 
 function CentralSphere() {
   const matRef = useRef<THREE.ShaderMaterial>(null!);
   const geo = useMemo(() => {
-    const g = new THREE.SphereGeometry(SPHERE_R, 64, 48);
+    const g = new THREE.SphereGeometry(2.2, 64, 48);
     const pos = g.attributes.position;
     for (let i = 0; i < pos.count; i++) {
       const x = pos.getX(i);
@@ -122,16 +122,16 @@ function CentralSphere() {
       const r = Math.sqrt(x * x + y * y + z * z);
       const lat = Math.asin(y / r);
       const lon = Math.atan2(z, x);
-      // Geoid: more flattened at poles, wider at equator
-      const flatFactor = 1.0 - 0.15 * Math.sin(lat) * Math.sin(lat);
-      // Subtle irregular bumps like a real geoid
+      // Geoid: strongly flattened at poles, wider at equator
+      const flatFactor = 1.0 - 0.25 * Math.sin(lat) * Math.sin(lat);
+      // More pronounced irregular bumps
       const bump = 1.0
-        + 0.015 * Math.sin(3.0 * lat) * Math.cos(2.0 * lon)
-        + 0.01 * Math.sin(5.0 * lat + 1.0) * Math.cos(4.0 * lon + 0.5)
-        + 0.008 * Math.cos(7.0 * lon + 2.0) * Math.sin(2.0 * lat);
+        + 0.03 * Math.sin(3.0 * lat) * Math.cos(2.0 * lon)
+        + 0.02 * Math.sin(5.0 * lat + 1.0) * Math.cos(4.0 * lon + 0.5)
+        + 0.015 * Math.cos(7.0 * lon + 2.0) * Math.sin(2.0 * lat);
       const newR = r * flatFactor * bump;
       const scale = newR / r;
-      pos.setXYZ(i, x * scale * 1.3, y * flatFactor, z * scale * 1.3);
+      pos.setXYZ(i, x * scale * 1.4, y * flatFactor, z * scale * 1.4);
     }
     pos.needsUpdate = true;
     g.computeVertexNormals();
@@ -357,6 +357,8 @@ function LogoMenuGroup({ onSelect }: { onSelect: (item: ContentItem) => void }) 
 
   return (
     <group ref={groupRef} position={[0, 0, 0]} renderOrder={999}>
+      {/* (inner smoke removed — handled by background shader vignette) */}
+
       {/* Logo */}
       <Suspense fallback={null}>
         <LogoMesh />
@@ -486,6 +488,74 @@ function TrackpadOrbitControls() {
       mouseButtons={{ LEFT: THREE.MOUSE.ROTATE, MIDDLE: THREE.MOUSE.ROTATE, RIGHT: THREE.MOUSE.ROTATE }}
       touches={{ ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_ROTATE }}
     />
+  );
+}
+
+// ─── Inner smoke sphere (fades at edges, same smoke as background) ───────────
+const INNER_SMOKE_VERT = /* glsl */ `
+  varying vec2 vUv;
+  varying vec3 vNormal;
+  varying vec3 vPosition;
+  void main() {
+    vUv = uv;
+    vNormal = normalize(normalMatrix * normal);
+    vPosition = (modelViewMatrix * vec4(position, 1.0)).xyz;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  }
+`;
+const INNER_SMOKE_FRAG = /* glsl */ `
+  precision mediump float;
+  uniform float uTime;
+  varying vec2 vUv;
+  varying vec3 vNormal;
+  varying vec3 vPosition;
+
+  vec2 hash2(vec2 p) { p = vec2(dot(p,vec2(127.1,311.7)),dot(p,vec2(269.5,183.3))); return -1.0+2.0*fract(sin(p)*43758.5453123); }
+  float vnoise(vec2 p) { vec2 i=floor(p); vec2 f=fract(p); vec2 u=f*f*(3.0-2.0*f); float a=dot(hash2(i),f); float b=dot(hash2(i+vec2(1,0)),f-vec2(1,0)); float c=dot(hash2(i+vec2(0,1)),f-vec2(0,1)); float d=dot(hash2(i+vec2(1,1)),f-vec2(1,1)); return mix(mix(a,b,u.x),mix(c,d,u.x),u.y); }
+  float fbm(vec2 p) { float v=0.0; float a=0.5; vec2 shift=vec2(100.0); mat2 rot=mat2(cos(0.5),sin(0.5),-sin(0.5),cos(0.5)); for(int i=0;i<4;i++){v+=a*vnoise(p);p=rot*p*2.0+shift;a*=0.5;} return v; }
+
+  void main() {
+    vec2 p = vUv * 2.0;
+    float t = uTime * 0.04;
+    vec2 q = vec2(fbm(p+t), fbm(p+vec2(5.2,1.3)+t*0.8));
+    vec2 r = vec2(fbm(p+3.8*q+vec2(1.7,9.2)+t*0.6), fbm(p+3.8*q+vec2(8.3,2.8)+t*0.5));
+    float f = fbm(p+5.0*r+t*0.2);
+    f = f*0.5+0.5;
+
+    vec3 cBlack = vec3(0.004,0.0005,0.002);
+    vec3 cCrimson = vec3(0.06,0.0,0.015);
+    vec3 cRed = vec3(0.14,0.0,0.03);
+    vec3 col = cBlack;
+    col = mix(col, cCrimson, smoothstep(0.22,0.48,f));
+    col = mix(col, cRed, smoothstep(0.42,0.60,f)*0.45);
+
+    // Fresnel fade: opaque at edges (smoke visible), transparent at center (black/clear)
+    float fresnel = 1.0 - abs(dot(vNormal, normalize(-vPosition)));
+    float alpha = smoothstep(0.2, 0.8, fresnel) * 0.9;
+
+    gl_FragColor = vec4(col, alpha);
+  }
+`;
+
+function InnerSmoke() {
+  const matRef = useRef<THREE.ShaderMaterial>(null!);
+  useFrame(({ clock }) => {
+    if (matRef.current) matRef.current.uniforms.uTime.value = clock.getElapsedTime();
+  });
+  return (
+    <mesh renderOrder={997}>
+      <sphereGeometry args={[3, 32, 32]} />
+      <shaderMaterial
+        ref={matRef}
+        vertexShader={INNER_SMOKE_VERT}
+        fragmentShader={INNER_SMOKE_FRAG}
+        uniforms={{ uTime: { value: 0 } }}
+        transparent
+        depthTest={false}
+        depthWrite={false}
+        side={THREE.FrontSide}
+      />
+    </mesh>
   );
 }
 
@@ -749,7 +819,7 @@ export default function SphereScene() {
         textTransform: "uppercase", pointerEvents: "none", whiteSpace: "nowrap",
         fontFamily: "Josafronde, Space Grotesk, sans-serif", zIndex: 10,
       }}>
-        Scroll to turn the orbit
+        Scroll to turn the orbit · Pinch to zoom · Click to open
       </div>
       <CursorParticles />
     </div>
