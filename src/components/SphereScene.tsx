@@ -172,9 +172,9 @@ function Logo() {
   });
 
   return (
-    <mesh ref={ref} position={[0, 0, SPHERE_R + 0.3]}>
+    <mesh ref={ref} position={[0, 0, 0]} renderOrder={999}>
       <planeGeometry args={[logoW, logoH]} />
-      <meshBasicMaterial map={texture} transparent depthWrite={false} side={THREE.DoubleSide} />
+      <meshBasicMaterial map={texture} transparent depthWrite={false} depthTest={false} side={THREE.DoubleSide} />
     </mesh>
   );
 }
@@ -291,33 +291,31 @@ function VideoPanel({ item, position, onSelect }: {
 function TextPanel({ item, position, onSelect }: {
   item: ContentItem; position: THREE.Vector3; onSelect: (item: ContentItem) => void;
 }) {
-  const ref = useRef<THREE.Mesh>(null!);
+  const ref = useRef<THREE.Group>(null!);
   const [hovered, setHovered] = useState(false);
-
-  const rotation = useMemo(() => {
-    const q = new THREE.Quaternion();
-    q.setFromUnitVectors(new THREE.Vector3(0, 0, 1), position.clone().normalize());
-    return new THREE.Euler().setFromQuaternion(q);
-  }, [position]);
+  const { camera } = useThree();
 
   useFrame(() => {
     if (!ref.current) return;
+    // Always face the camera
+    ref.current.lookAt(camera.position);
+    // Hover scale
     const target = hovered ? 1.1 : 1;
     const s = ref.current.scale.x;
     ref.current.scale.setScalar(s + (target - s) * 0.08);
   });
 
   return (
-    <group position={position} rotation={rotation} ref={ref as any}
+    <group position={position} ref={ref}
       onPointerEnter={() => { setHovered(true);  }}
       onPointerLeave={() => { setHovered(false);  }}
       onClick={() => onSelect(item)}
     >
-      <mesh>
+      <mesh renderOrder={998}>
         <planeGeometry args={[1.4, 0.7]} />
-        <meshBasicMaterial transparent opacity={0} side={THREE.DoubleSide} />
+        <meshBasicMaterial transparent opacity={0} depthTest={false} depthWrite={false} side={THREE.DoubleSide} />
       </mesh>
-      <Html center distanceFactor={5} style={{ pointerEvents: "none", userSelect: "none" }}>
+      <Html center distanceFactor={5} zIndexRange={[9999, 9999]} style={{ pointerEvents: "none", userSelect: "none" }}>
         <div style={{
           color: "rgba(255, 30, 73, 0.55)", fontFamily: "'Enclav Acadam', 'Space Grotesk', sans-serif", textTransform: "uppercase",
           letterSpacing: "0.25em", textAlign: "center", fontSize: "18px", fontWeight: 900,
@@ -331,6 +329,165 @@ function TextPanel({ item, position, onSelect }: {
   );
 }
 
+
+// ─── Logo + Menu group (always faces camera, stays centered) ─────────────────
+function LogoMenuGroup({ onSelect }: { onSelect: (item: ContentItem) => void }) {
+  const groupRef = useRef<THREE.Group>(null!);
+  const { camera } = useThree();
+
+  // Menu layout: positions relative to logo center
+  const menuLayout = [
+    { id: "bio",      y: -1.0,  x: 0 },
+    { id: "abstract", y: 1.1,   x: -1.9 },
+    { id: "tech",     y: 1.1,   x: 1.9 },
+    { id: "links",    y: -1.5,  x: -2.0 },
+    { id: "dates",    y: -1.5,  x: 2.0 },
+  ];
+
+  useFrame(({ clock }) => {
+    if (!groupRef.current) return;
+    groupRef.current.lookAt(camera.position);
+    // Breathing animation on logo (first child)
+    const logo = groupRef.current.children[0] as THREE.Mesh;
+    if (logo) {
+      const breathe = 1 + Math.sin(clock.getElapsedTime() * 0.8) * 0.04;
+      logo.scale.setScalar(breathe);
+    }
+  });
+
+  return (
+    <group ref={groupRef} position={[0, 0, 0]} renderOrder={999}>
+      {/* Logo */}
+      <Suspense fallback={null}>
+        <LogoMesh />
+      </Suspense>
+
+      {/* Menu items around logo */}
+      {TEXT_ITEMS.map((item) => {
+        const layout = menuLayout.find(l => l.id === item.id);
+        if (!layout) return null;
+        return (
+          <group key={item.id} position={[layout.x, layout.y, 0]}>
+            <mesh renderOrder={998}>
+              <planeGeometry args={[1.4, 0.7]} />
+              <meshBasicMaterial transparent opacity={0} depthTest={false} depthWrite={false} side={THREE.DoubleSide} />
+            </mesh>
+            <Html center distanceFactor={5} zIndexRange={[9999, 9999]}
+              style={{ pointerEvents: "auto", userSelect: "none", cursor: "pointer" }}>
+              <div
+                onClick={() => onSelect(item)}
+                style={{
+                  color: "rgba(255, 30, 73, 0.55)",
+                  fontFamily: "'Enclav Acadam', 'Space Grotesk', sans-serif",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.25em",
+                  textAlign: "center",
+                  fontSize: "24px",
+                  fontWeight: 900,
+                  cursor: "pointer",
+                  transition: "opacity 0.4s, color 0.4s",
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.color = "rgba(255, 30, 73, 0.85)"; e.currentTarget.style.opacity = "1"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.color = "rgba(255, 30, 73, 0.55)"; e.currentTarget.style.opacity = "0.85"; }}
+              >
+                {item.title}
+              </div>
+            </Html>
+          </group>
+        );
+      })}
+    </group>
+  );
+}
+
+// ─── Logo mesh (just the textured plane, no lookAt — parent group handles it) ──
+function LogoMesh() {
+  const texture = useTexture("/images/logo-hh.svg");
+  texture.colorSpace = THREE.SRGBColorSpace;
+  const aspect = texture.image ? (texture.image as HTMLImageElement).width / (texture.image as HTMLImageElement).height : 3;
+  const logoH = 1.3;
+  const logoW = logoH * aspect;
+
+  return (
+    <mesh renderOrder={999}>
+      <planeGeometry args={[logoW, logoH]} />
+      <meshBasicMaterial map={texture} transparent depthTest={false} depthWrite={false} side={THREE.DoubleSide} />
+    </mesh>
+  );
+}
+
+// ─── Trackpad orbit controls ─────────────────────────────────────────────────
+// Two-finger scroll = rotate, pinch = zoom, click+drag = rotate
+function TrackpadOrbitControls() {
+  const { camera, gl } = useThree();
+
+  useEffect(() => {
+    const canvas = gl.domElement;
+    const spherical = new THREE.Spherical();
+    const minDist = SPHERE_R - 1.5;
+    const maxDist = SPHERE_R + 5;
+
+    // Velocity-based smoothing
+    let velocityTheta = 0;
+    let velocityPhi = 0;
+    let rafId: number;
+
+    const handleWheel = (e: WheelEvent) => {
+      e.preventDefault();
+
+      if (e.ctrlKey) {
+        // Pinch zoom on trackpad
+        spherical.setFromVector3(camera.position);
+        spherical.radius = Math.max(minDist, Math.min(maxDist, spherical.radius + e.deltaY * 0.05));
+        camera.position.setFromSpherical(spherical);
+        camera.lookAt(0, 0, 0);
+      } else {
+        // Two-finger scroll: accumulate velocity (slower)
+        velocityTheta -= e.deltaX * 0.0008;
+        velocityPhi -= e.deltaY * 0.0008;
+      }
+    };
+
+    const animate = () => {
+      rafId = requestAnimationFrame(animate);
+
+      if (Math.abs(velocityTheta) < 0.00001 && Math.abs(velocityPhi) < 0.00001) return;
+
+      spherical.setFromVector3(camera.position);
+      spherical.theta += velocityTheta;
+      spherical.phi += velocityPhi;
+      spherical.phi = Math.max(0.1, Math.min(Math.PI - 0.1, spherical.phi));
+
+      camera.position.setFromSpherical(spherical);
+      camera.lookAt(0, 0, 0);
+
+      // Friction for smooth deceleration
+      velocityTheta *= 0.92;
+      velocityPhi *= 0.92;
+    };
+    rafId = requestAnimationFrame(animate);
+
+    canvas.addEventListener("wheel", handleWheel, { passive: false });
+    return () => {
+      canvas.removeEventListener("wheel", handleWheel);
+      cancelAnimationFrame(rafId);
+    };
+  }, [camera, gl]);
+
+  return (
+    <OrbitControls
+      enablePan={false}
+      enableDamping
+      dampingFactor={0.04}
+      rotateSpeed={0.35}
+      enableZoom={false}
+      minDistance={SPHERE_R - 1.5}
+      maxDistance={SPHERE_R + 5}
+      mouseButtons={{ LEFT: THREE.MOUSE.ROTATE, MIDDLE: THREE.MOUSE.ROTATE, RIGHT: THREE.MOUSE.ROTATE }}
+      touches={{ ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_ROTATE }}
+    />
+  );
+}
 
 // ─── Smoke background (rendered on large sphere behind everything) ──────────
 const SMOKE_VERT = "varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }";
@@ -451,16 +608,9 @@ function SceneContent({ onSelect }: { onSelect: (item: ContentItem) => void }) {
         })}
       </RotatingGroup>
 
-      {/* Logo and menus stay fixed, NOT inside RotatingGroup */}
-      <Suspense fallback={null}><Logo /></Suspense>
-      {ALL_ITEMS.map((item, i) => {
-        if (item.type === "text") {
-          return <TextPanel key={item.id} item={item} position={positions[i]} onSelect={onSelect} />;
-        }
-        return null;
-      })}
-      <OrbitControls enablePan={false} enableDamping dampingFactor={0.04}
-        rotateSpeed={0.35} minDistance={SPHERE_R + 1.5} maxDistance={SPHERE_R + 14} />
+      {/* Logo + menu: grouped together, always face camera */}
+      <LogoMenuGroup onSelect={onSelect} />
+      <TrackpadOrbitControls />
     </>
   );
 }
@@ -557,7 +707,7 @@ export default function SphereScene() {
     <div style={{ position: "fixed", inset: 0, background: "#040102" }}>
       <audio ref={audioRef} src="/audio/drone.mp3" loop preload="auto" />
       <Canvas
-        camera={{ position: [0, 0, 9], fov: 55, near: 0.1, far: 100 }}
+        camera={{ position: [0, 0, 4.5], fov: 55, near: 0.1, far: 100 }}
         gl={{ antialias: true, alpha: false, powerPreference: "high-performance" }}
         style={{ position: "relative", zIndex: 1 }}
         onCreated={({ gl }) => { gl.setClearColor("#040102"); gl.toneMapping = THREE.ACESFilmicToneMapping; gl.toneMappingExposure = 0.8; }}
@@ -599,7 +749,7 @@ export default function SphereScene() {
         textTransform: "uppercase", pointerEvents: "none", whiteSpace: "nowrap",
         fontFamily: "Josafronde, Space Grotesk, sans-serif", zIndex: 10,
       }}>
-        Orbit to explore · Hover to reveal · Click to open
+        Scroll to turn the orbit
       </div>
       <CursorParticles />
     </div>
