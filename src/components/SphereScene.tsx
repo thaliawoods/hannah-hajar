@@ -62,14 +62,14 @@ function applyGeoid(v: THREE.Vector3): THREE.Vector3 {
   if (r === 0) return v;
   const lat = Math.asin(v.y / r);
   const lon = Math.atan2(v.z, v.x);
-  const flatFactor = 1.0 - 0.15 * Math.sin(lat) * Math.sin(lat);
+  const flatFactor = 1.0 - 0.25 * Math.sin(lat) * Math.sin(lat);
   const bump = 1.0
-    + 0.015 * Math.sin(3.0 * lat) * Math.cos(2.0 * lon)
-    + 0.01 * Math.sin(5.0 * lat + 1.0) * Math.cos(4.0 * lon + 0.5)
-    + 0.008 * Math.cos(7.0 * lon + 2.0) * Math.sin(2.0 * lat);
+    + 0.03 * Math.sin(3.0 * lat) * Math.cos(2.0 * lon)
+    + 0.02 * Math.sin(5.0 * lat + 1.0) * Math.cos(4.0 * lon + 0.5)
+    + 0.015 * Math.cos(7.0 * lon + 2.0) * Math.sin(2.0 * lat);
   const newR = r * flatFactor * bump;
   const scale = newR / r;
-  return new THREE.Vector3(v.x * scale * 1.3, v.y * flatFactor, v.z * scale * 1.3);
+  return new THREE.Vector3(v.x * scale * 1.4, v.y * flatFactor, v.z * scale * 1.4);
 }
 
 
@@ -197,7 +197,7 @@ function ImagePanel({ item, position, onSelect }: {
   texture.colorSpace = THREE.SRGBColorSpace;
 
   const aspect = texture.image ? (texture.image as HTMLImageElement).width / (texture.image as HTMLImageElement).height : 1;
-  const h = 1.4;
+  const h = 1.9;
   const w = h * Math.min(aspect, 1.6);
 
   useFrame(() => {
@@ -268,7 +268,7 @@ function VideoPanel({ item, position, onSelect }: {
       onClick={() => onSelect(item)}
     >
       <mesh>
-        <planeGeometry args={[1.6, 1.1]} />
+        <planeGeometry args={[2.1, 1.5]} />
         <meshBasicMaterial transparent opacity={0} side={THREE.DoubleSide} />
       </mesh>
       <Html center distanceFactor={5} style={{ pointerEvents: "none", userSelect: "none" }}>
@@ -337,11 +337,11 @@ function LogoMenuGroup({ onSelect }: { onSelect: (item: ContentItem) => void }) 
 
   // Menu layout: positions relative to logo center
   const menuLayout = [
-    { id: "bio",      y: -1.0,  x: 0 },
-    { id: "abstract", y: 1.1,   x: -1.9 },
-    { id: "tech",     y: 1.1,   x: 1.9 },
-    { id: "links",    y: -1.5,  x: -2.0 },
-    { id: "dates",    y: -1.5,  x: 2.0 },
+    { id: "bio",      y: -1.5,  x: 0 },
+    { id: "abstract", y: 1.6,   x: -2.5 },
+    { id: "tech",     y: 1.6,   x: 2.5 },
+    { id: "links",    y: -2.1,  x: -2.6 },
+    { id: "dates",    y: -2.1,  x: 2.6 },
   ];
 
   useFrame(({ clock }) => {
@@ -384,7 +384,7 @@ function LogoMenuGroup({ onSelect }: { onSelect: (item: ContentItem) => void }) 
                   textTransform: "uppercase",
                   letterSpacing: "0.25em",
                   textAlign: "center",
-                  fontSize: "24px",
+                  fontSize: "30px",
                   fontWeight: 900,
                   cursor: "pointer",
                   transition: "opacity 0.4s, color 0.4s",
@@ -407,7 +407,7 @@ function LogoMesh() {
   const texture = useTexture("/images/logo-hh.svg");
   texture.colorSpace = THREE.SRGBColorSpace;
   const aspect = texture.image ? (texture.image as HTMLImageElement).width / (texture.image as HTMLImageElement).height : 3;
-  const logoH = 1.3;
+  const logoH = 1.7;
   const logoW = logoH * aspect;
 
   return (
@@ -426,7 +426,7 @@ function TrackpadOrbitControls() {
   useEffect(() => {
     const canvas = gl.domElement;
     const spherical = new THREE.Spherical();
-    const minDist = SPHERE_R - 1.5;
+    const minDist = SPHERE_R - 0.5;
     const maxDist = SPHERE_R + 5;
 
     // Velocity-based smoothing
@@ -445,8 +445,8 @@ function TrackpadOrbitControls() {
         camera.lookAt(0, 0, 0);
       } else {
         // Two-finger scroll: accumulate velocity (slower)
-        velocityTheta -= e.deltaX * 0.0008;
-        velocityPhi -= e.deltaY * 0.0008;
+        velocityTheta -= e.deltaX * 0.0003;
+        velocityPhi -= e.deltaY * 0.0003;
       }
     };
 
@@ -458,7 +458,7 @@ function TrackpadOrbitControls() {
       spherical.setFromVector3(camera.position);
       spherical.theta += velocityTheta;
       spherical.phi += velocityPhi;
-      spherical.phi = Math.max(0.1, Math.min(Math.PI - 0.1, spherical.phi));
+      spherical.phi = Math.max(0.01, Math.min(Math.PI - 0.01, spherical.phi));
 
       camera.position.setFromSpherical(spherical);
       camera.lookAt(0, 0, 0);
@@ -483,8 +483,10 @@ function TrackpadOrbitControls() {
       dampingFactor={0.04}
       rotateSpeed={0.35}
       enableZoom={false}
-      minDistance={SPHERE_R - 1.5}
+      minDistance={SPHERE_R - 0.5}
       maxDistance={SPHERE_R + 5}
+      minPolarAngle={0.01}
+      maxPolarAngle={Math.PI - 0.01}
       mouseButtons={{ LEFT: THREE.MOUSE.ROTATE, MIDDLE: THREE.MOUSE.ROTATE, RIGHT: THREE.MOUSE.ROTATE }}
       touches={{ ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_ROTATE }}
     />
@@ -635,11 +637,10 @@ function SceneContent({ onSelect }: { onSelect: (item: ContentItem) => void }) {
       return applyGeoid(new THREE.Vector3(layout.x, layout.y, z));
     });
 
-    // Media items: sunflower on sphere, excluding polar caps so nothing hides at top/bottom
+    // Media items: sunflower on sphere, covering full surface including poles
     const mediaPositions = MEDIA_ITEMS.map((_, i) => {
       const total = MEDIA_ITEMS.length;
-      // Constrain y to [-0.75, 0.75] to avoid poles
-      const y = 0.75 - (i / (total - 1)) * 1.5;
+      const y = 1 - (i / (total - 1)) * 2;
       const radiusAtY = Math.sqrt(1 - y * y);
       const theta = GOLDEN_ANGLE * (i + 1);
       return applyGeoid(new THREE.Vector3(
@@ -777,7 +778,7 @@ export default function SphereScene() {
     <div style={{ position: "fixed", inset: 0, background: "#040102" }}>
       <audio ref={audioRef} src="/audio/drone.mp3" loop preload="auto" />
       <Canvas
-        camera={{ position: [0, 0, 4.5], fov: 55, near: 0.1, far: 100 }}
+        camera={{ position: [0, 0, 5], fov: 55, near: 0.1, far: 100 }}
         gl={{ antialias: true, alpha: false, powerPreference: "high-performance" }}
         style={{ position: "relative", zIndex: 1 }}
         onCreated={({ gl }) => { gl.setClearColor("#040102"); gl.toneMapping = THREE.ACESFilmicToneMapping; gl.toneMappingExposure = 0.8; }}
