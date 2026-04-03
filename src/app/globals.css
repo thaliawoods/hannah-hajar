@@ -76,10 +76,6 @@ button {
   min-height: 100vh;
 }
 
-/* =========================
-   VIEWPORT / FOND MATIÈRE
-   ========================= */
-
 .viewport {
   position: relative;
   width: 100vw;
@@ -95,7 +91,6 @@ button {
   cursor: grabbing;
 }
 
-/* fondu très subtil */
 .viewport::before {
   content: "";
   position: absolute;
@@ -121,7 +116,6 @@ button {
     );
 }
 
-/* grain fin très léger */
 .viewport::after {
   content: "";
   position: absolute;
@@ -144,10 +138,6 @@ button {
     );
 }
 
-/* =========================
-   WORLD
-   ========================= */
-
 .world {
   position: absolute;
   inset: 0;
@@ -155,10 +145,6 @@ button {
   transform-origin: 0 0;
   will-change: transform;
 }
-
-/* =========================
-   NODES
-   ========================= */
 
 .node {
   position: absolute;
@@ -173,10 +159,6 @@ button {
   outline: none;
 }
 
-/* =========================
-   LOGO
-   ========================= */
-
 .node-logo {
   cursor: none !important;
   z-index: 3;
@@ -188,10 +170,6 @@ button {
   filter: drop-shadow(0 0 22px rgba(255, 30, 73, 0.35));
   animation: breathe 6s ease-in-out infinite;
 }
-
-/* =========================
-   MEDIA (IMAGES / VIDÉOS) — FANTOMATIQUE
-   ========================= */
 
 .node-media {
   z-index: 1;
@@ -237,29 +215,21 @@ button {
   transition: opacity 2.5s ease, filter 2.5s ease;
 }
 
-/* Image: slow return */
 .node-media:has(img) img {
   transition: opacity 2.5s ease, filter 2.5s ease;
 }
 
-/* Video: fast spring return */
 .node-media:has(video) img,
 .node-media:has(video) video {
   transition: opacity 0.45s ease, filter 0.45s ease;
 }
 
-/* Hover (non-awakened) — subtle preview */
 .node-media:hover img,
 .node-media:hover video {
   opacity: 0.62;
   filter: brightness(0.72) contrast(0.9) saturate(0.78);
 }
 
-/* ==============================
-   AWAKENED STATE (hover reveal)
-   ============================== */
-
-/* Image: rotate toward upright + reveal (1.8s in) */
 [data-awakened].node-media:has(img) {
   transform: translate(-50%, -50%) rotate(0deg) !important;
   transition: transform 1.8s ease !important;
@@ -270,12 +240,10 @@ button {
   transition: opacity 1.8s ease, filter 1.8s ease !important;
 }
 
-/* Image: slow tilt-back (2.5s return to base rotation) */
 .node-media:has(img) {
   transition: transform 2.5s ease !important;
 }
 
-/* Video: rotate one full turn, land straight (0deg), slower */
 [data-awakened].node-media:has(video) {
   transform: translate(-50%, -50%) rotate(360deg) !important;
   transition: transform 1.4s cubic-bezier(0.25, 0.1, 0.25, 1) !important;
@@ -286,15 +254,10 @@ button {
   transition: opacity 0.45s ease, filter 0.45s ease !important;
 }
 
-/* Video: fast spring return */
 .node-media:has(video) {
   transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1) !important;
 }
 
-
-/* =========================
-   TEXT NODES
-   ========================= */
 
 .node-text {
   z-index: 2;
@@ -329,10 +292,6 @@ button {
   text-align: left;
   pointer-events: none;
 }
-
-/* =========================
-   MODAL (text / dates)
-   ========================= */
 
 .modal {
   position: fixed;
@@ -411,10 +370,6 @@ button {
   width: 100%;
 }
 
-/* =========================
-   MODAL RED (fullscreen image / video)
-   ========================= */
-
 .modal-red {
   position: fixed;
   inset: 0;
@@ -451,10 +406,6 @@ button {
   z-index: 31;
 }
 
-/* =========================
-   TUTORIAL HINT
-   ========================= */
-
 .tutorial {
   position: fixed;
   bottom: 2rem;
@@ -468,10 +419,6 @@ button {
   pointer-events: none;
   white-space: nowrap;
 }
-
-/* =========================
-   EDIT HUD
-   ========================= */
 
 .edit-hud {
   position: fixed;
@@ -518,10 +465,6 @@ button {
   font-size: 10px;
 }
 
-/* =========================
-   LABELS
-   ========================= */
-
 .node-label {
   position: absolute;
   left: 50%;
@@ -536,10 +479,6 @@ button {
   pointer-events: none;
   white-space: nowrap;
 }
-
-/* =========================
-   ANIMATION
-   ========================= */
 
 @keyframes breathe {
   0% {
