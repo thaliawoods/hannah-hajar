@@ -745,7 +745,7 @@ function Modal({ item, onClose }: { item: ContentItem; onClose: () => void }) {
 }
 
 // ─── Main ───────────────────────────────────────────────────────────────────
-export default function SphereScene() {
+export default function SphereScene({ onReady }: { onReady?: () => void }) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const [openItem, setOpenItem] = useState<ContentItem | null>(null);
 
@@ -769,9 +769,13 @@ export default function SphereScene() {
     const audio = audioRef.current;
     if (!audio) return;
     audio.volume = 0.35;
-    const play = () => { audio.play().catch(() => {}); document.removeEventListener("click", play); };
-    document.addEventListener("click", play);
-    return () => document.removeEventListener("click", play);
+    // Tente de jouer immédiatement (le clic Enter a déjà débloqué l'autoplay)
+    audio.play().catch(() => {
+      // Fallback : attend un clic si l'autoplay est bloqué
+      const play = () => { audio.play().catch(() => {}); document.removeEventListener("click", play); };
+      document.addEventListener("click", play);
+      return () => document.removeEventListener("click", play);
+    });
   }, []);
 
   return (
@@ -781,7 +785,7 @@ export default function SphereScene() {
         camera={{ position: [0, 0, 5], fov: 55, near: 0.1, far: 100 }}
         gl={{ antialias: true, alpha: false, powerPreference: "high-performance" }}
         style={{ position: "relative", zIndex: 1 }}
-        onCreated={({ gl }) => { gl.setClearColor("#040102"); gl.toneMapping = THREE.ACESFilmicToneMapping; gl.toneMappingExposure = 0.8; }}
+        onCreated={({ gl }) => { gl.setClearColor("#040102"); gl.toneMapping = THREE.ACESFilmicToneMapping; gl.toneMappingExposure = 0.8; onReady?.(); }}
       >
         <SceneContent onSelect={handleSelect} />
       </Canvas>

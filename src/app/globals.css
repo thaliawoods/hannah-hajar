@@ -1,5 +1,46 @@
 @import url("https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600&family=Space+Grotesk:wght@400;500;600&display=swap");
 
+@font-face {
+  font-family: "Enclav Acadam";
+  src: url("/fonts/EnclavAcadam-Regular.woff2") format("woff2"),
+       url("/fonts/EnclavAcadam-Regular.woff") format("woff");
+  font-weight: 400;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: "Josafronde";
+  src: url("/fonts/Josafronde-Regular.woff2") format("woff2"),
+       url("/fonts/Josafronde-Regular.woff") format("woff");
+  font-weight: 400;
+  font-style: normal;
+}
+
+@keyframes breatheLogo {
+  0%, 100% { transform: scale(1); opacity: 0.85; }
+  50% { transform: scale(1.03); opacity: 1; }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 0.7; }
+}
+
+@keyframes loadingBar {
+  0% { transform: translateX(-100px); }
+  100% { transform: translateX(290px); }
+}
+
+@keyframes fadeOutFinal {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
 :root {
   --black: #040102;
   --red: #b00018;
