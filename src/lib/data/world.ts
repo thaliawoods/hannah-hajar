@@ -22,13 +22,11 @@ export type MapItem = {
   label?: string;
 };
 
-// ── deterministic pseudo-random ───────────────────────────────────────────────
 const S = (n: number) => {
   const x = Math.sin(n + 1) * 43758.5453;
   return x - Math.floor(x);
 };
 
-// ── media pools ───────────────────────────────────────────────────────────────
 const MEDIA_PREFIX = "/hannah-hajar";
 
 const IMAGE_SRCS = [
@@ -71,11 +69,9 @@ const VIDEO_SRCS = [
   `${MEDIA_PREFIX}/IMG_8714.MOV`,
 ];
 
-// ── scatter generators ────────────────────────────────────────────────────────
 const XS = 2200;
 const YS = 1400;
 
-// Keep media outside the central logo+text zone
 function safePos(seed: number): { x: number; y: number } {
   for (let a = 0; a < 30; a++) {
     const x = Math.round((S(seed + a * 0.31 + 3.1) - 0.5) * XS * 2);
@@ -85,10 +81,8 @@ function safePos(seed: number): { x: number; y: number } {
   return { x: XS * 1.2, y: YS * 1.2 };
 }
 
-// Some items get ~180° rotation (upside-down)
 function pickRotation(seed: number, maxAngle: number): number {
   if (S(seed + 13) > 0.78) {
-    // upside-down: 160–200°
     return Math.round(180 + (S(seed + 14) - 0.5) * 40);
   }
   return Math.round((S(seed + 7.3) - 0.5) * maxAngle * 2);
@@ -132,7 +126,6 @@ function makeVideoNodes(): MapItem[] {
   });
 }
 
-// ── final map ─────────────────────────────────────────────────────────────────
 export const MAP_ITEMS: MapItem[] = [
   {
     id: "logo",

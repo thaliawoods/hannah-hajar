@@ -6,7 +6,6 @@ export type Concert = {
 };
 
 export const CONCERTS: Concert[] = [
-  // Remplace par tes vraies dates
   { date: "2026-02-14", city: "PARIS", venue: "—", url: "" },
   { date: "2026-03-01", city: "LYON", venue: "—", url: "" },
   { date: "2026-04-12", city: "BRUXELLES", venue: "—", url: "" }

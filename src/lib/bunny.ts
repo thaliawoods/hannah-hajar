@@ -1,6 +1,3 @@
-// src/lib/bunny.ts
-// Bunny.net Storage utility
-
 const CDN_BASE = (process.env.NEXT_PUBLIC_BUNNY_CDN_URL ?? "").replace(/\/$/, "");
 
 /**
@@ -16,8 +13,6 @@ export function cdnUrl(path: string): string {
   const normalised = path.startsWith("/") ? path : `/${path}`;
   return `${CDN_BASE}${normalised}`;
 }
-
-// ─── Server-side Storage API (Node.js only) ───────────────────────────────────
 
 const STORAGE_ZONE = process.env.BUNNY_STORAGE_ZONE ?? "";
 const STORAGE_HOST = process.env.BUNNY_STORAGE_HOST ?? "storage.bunnycdn.com";

@@ -2,7 +2,6 @@
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
 
-// ─── Vertex shader ─────────────────────────────────────────────────────────────
 const VERT = /* glsl */ `
   varying vec2 vUv;
   void main() {
@@ -11,7 +10,6 @@ const VERT = /* glsl */ `
   }
 `;
 
-// ─── Fragment shader: domain-warped FBM smoke ─────────────────────────────────
 const FRAG = /* glsl */ `
   precision mediump float;
 
@@ -20,7 +18,6 @@ const FRAG = /* glsl */ `
   uniform vec2  uResolution;
   varying vec2  vUv;
 
-  // ── value noise ──
   vec2 hash2(vec2 p) {
     p = vec2(dot(p, vec2(127.1, 311.7)), dot(p, vec2(269.5, 183.3)));
     return -1.0 + 2.0 * fract(sin(p) * 43758.5453123);
@@ -36,7 +33,6 @@ const FRAG = /* glsl */ `
     return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
   }
 
-  // ── fractional brownian motion ──
   float fbm(vec2 p) {
     float v = 0.0;
     float a = 0.5;
@@ -55,13 +51,11 @@ const FRAG = /* glsl */ `
     vec2 p      = vUv * aspect;
     float t     = uTime * 0.045;
 
-    // mouse pulls the smoke toward cursor
     vec2  mouse  = uMouse * aspect;
     float mDist  = length(p - mouse);
     float mPull  = 0.12 * exp(-mDist * 2.8);
     vec2  mWarp  = normalize(mouse - p + 0.001) * mPull;
 
-    // domain warping layers
     vec2 q = vec2(
       fbm(p + t + mWarp),
       fbm(p + vec2(5.2, 1.3) + t * 0.8)
@@ -71,32 +65,28 @@ const FRAG = /* glsl */ `
       fbm(p + 3.8 * q + vec2(8.3, 2.8) + t * 0.5)
     );
     float f = fbm(p + 4.2 * r + t * 0.25);
-    f = f * 0.5 + 0.5; // remap to [0,1]
+    f = f * 0.5 + 0.5;
 
-    // colour palette: near-black → deep crimson → blood red
     vec3 cBlack   = vec3(0.016, 0.004, 0.008);
     vec3 cCrimson = vec3(0.22,  0.0,   0.045);
     vec3 cRed     = vec3(0.48,  0.0,   0.10);
-    vec3 cBright  = vec3(0.69,  0.0,   0.094); // #b00018
+    vec3 cBright  = vec3(0.69,  0.0,   0.094);
 
     vec3 col = cBlack;
     col = mix(col, cCrimson, smoothstep(0.28, 0.52, f));
     col = mix(col, cRed,     smoothstep(0.50, 0.68, f) * 0.55);
     col = mix(col, cBright,  smoothstep(0.64, 0.78, f) * 0.22);
 
-    // edge vignette
     vec2 vigUv  = vUv * (1.0 - vUv.yx);
     float vig   = pow(vigUv.x * vigUv.y * 15.0, 0.38);
     col        *= 0.45 + 0.55 * vig;
 
-    // subtle pulse from mouse proximity
     col += cBright * 0.06 * exp(-mDist * 5.0);
 
     gl_FragColor = vec4(col, 1.0);
   }
 `;
 
-// ─── Particle system ───────────────────────────────────────────────────────────
 const PARTICLE_COUNT = 420;
 
 function createParticles() {
@@ -116,7 +106,6 @@ function createParticles() {
   return { positions, velocities, phases };
 }
 
-// ─── Component ────────────────────────────────────────────────────────────────
 export default function ThreeBackground() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -124,16 +113,13 @@ export default function ThreeBackground() {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    // ── renderer ──
     const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, alpha: false });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
     renderer.setSize(window.innerWidth, window.innerHeight);
 
-    // ── scene / camera ──
     const scene  = new THREE.Scene();
     const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
 
-    // ── background plane with shader ──
     const uniforms = {
       uTime:       { value: 0 },
       uMouse:      { value: new THREE.Vector2(0.5, 0.5) },
@@ -145,7 +131,6 @@ export default function ThreeBackground() {
     );
     scene.add(bgMesh);
 
-    // ── particles ──
     const { positions, velocities, phases } = createParticles();
     const posAttr = new THREE.BufferAttribute(positions, 3);
     posAttr.setUsage(THREE.DynamicDrawUsage);
@@ -164,7 +149,6 @@ export default function ThreeBackground() {
     });
     scene.add(new THREE.Points(pGeo, pMat));
 
-    // ── mouse tracking ──
     const mouse = new THREE.Vector2(0.5, 0.5);
     const mouseTarget = new THREE.Vector2(0.5, 0.5);
 
@@ -173,14 +157,12 @@ export default function ThreeBackground() {
     };
     window.addEventListener("mousemove", onMove);
 
-    // ── resize ──
     const onResize = () => {
       renderer.setSize(window.innerWidth, window.innerHeight);
       uniforms.uResolution.value.set(window.innerWidth, window.innerHeight);
     };
     window.addEventListener("resize", onResize);
 
-    // ── animation loop ──
     let rafId: number;
     const clock = new THREE.Clock();
 
@@ -188,23 +170,18 @@ export default function ThreeBackground() {
       rafId = requestAnimationFrame(tick);
       const t = clock.getElapsedTime();
 
-      // lerp mouse
       mouse.lerp(mouseTarget, 0.025);
       uniforms.uTime.value  = t;
       uniforms.uMouse.value.copy(mouse);
 
-      // update particles
       const arr = posAttr.array as Float32Array;
       for (let i = 0; i < PARTICLE_COUNT; i++) {
-        // gentle horizontal drift following mouse
         arr[i * 3]     += velocities[i * 3] + (mouseTarget.x - 0.5) * 0.00025;
         arr[i * 3 + 1] += velocities[i * 3 + 1];
         phases[i]      += 0.0008;
 
-        // slight lateral oscillation
         arr[i * 3] += Math.sin(phases[i] * Math.PI * 2) * 0.00018;
 
-        // respawn at bottom when particle drifts out
         if (arr[i * 3 + 1] > 1.15 || arr[i * 3] > 1.2 || arr[i * 3] < -1.2) {
           arr[i * 3]     = (Math.random() - 0.5) * 2.0;
           arr[i * 3 + 1] = -1.1;

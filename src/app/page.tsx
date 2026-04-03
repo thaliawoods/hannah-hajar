@@ -32,12 +32,10 @@ export default function Home() {
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "#040102" }}>
-      {/* La scène 3D est montée uniquement après le clic Enter */}
       {phase !== "enter" && (
         <SphereScene onReady={handleSceneReady} />
       )}
 
-      {/* Overlay de chargement / entrée */}
       {!fadeOut ? (
         <div
           onClick={phase === "enter" ? handleEnter : undefined}
@@ -53,7 +51,6 @@ export default function Home() {
             cursor: phase === "enter" ? "pointer" : "default",
           }}
         >
-          {/* Logo */}
           <img
             src="/images/logo-hh.svg"
             alt="Hannah Hajar"
@@ -65,7 +62,6 @@ export default function Home() {
             }}
           />
 
-          {/* Enter — même police que le menu */}
           {phase === "enter" && (
             <div
               style={{
@@ -90,7 +86,6 @@ export default function Home() {
             </div>
           )}
 
-          {/* Loading */}
           {phase === "loading" && (
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "1rem" }}>
               <div
@@ -130,7 +125,6 @@ export default function Home() {
 
         </div>
       ) : (
-        /* Fondu final quand la scène est prête */
         <div
           style={{
             position: "fixed",

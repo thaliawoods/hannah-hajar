@@ -28,7 +28,6 @@ const TEXT_ITEMS: ContentItem[] = [
 const IMAGE_LIST: ContentItem[] = IMAGE_ITEMS.map((item, i) => ({ id: "img-" + i, type: "image" as const, src: item.src, label: item.label }));
 const VIDEO_LIST: ContentItem[] = VIDEO_ITEMS.slice(0, 6).map((item, i) => ({ id: "vid-" + i, type: "video" as const, src: item.src, label: item.label }));
 
-// Interleave videos among images so they spread across the sphere
 const MEDIA_ITEMS: ContentItem[] = [];
 const vidInterval = Math.floor(IMAGE_LIST.length / (VIDEO_LIST.length + 1));
 let vidIdx = 0;
@@ -56,7 +55,6 @@ function sunflowerSphere(index: number, total: number, radius: number): THREE.Ve
     Math.sin(theta) * radiusAtY * radius,
   );
 }
-// Apply the same geoid deformation to any position on the sphere
 function applyGeoid(v: THREE.Vector3): THREE.Vector3 {
   const r = v.length();
   if (r === 0) return v;
@@ -74,7 +72,6 @@ function applyGeoid(v: THREE.Vector3): THREE.Vector3 {
 
 
 
-// ─── Particles (instanced, cheap) ───────────────────────────────────────────
 function Particles() {
   const count = 500;
   const ref = useRef<THREE.Points>(null!);
@@ -106,7 +103,6 @@ function Particles() {
   );
 }
 
-// ─── Sphere ─────────────────────────────────────────────────────────────────
 const SPHERE_VERT = "varying vec3 vNormal; varying vec3 vPosition; void main() { vNormal = normalize(normalMatrix * normal); vPosition = (modelViewMatrix * vec4(position, 1.0)).xyz; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }";
 const SPHERE_FRAG = "uniform float uTime; varying vec3 vNormal; varying vec3 vPosition; void main() { float edge = abs(dot(vNormal, normalize(-vPosition))); float alpha = pow(edge, 3.0) * 0.6; gl_FragColor = vec4(0.01, 0.002, 0.005, alpha); }";
 
@@ -122,9 +118,7 @@ function CentralSphere() {
       const r = Math.sqrt(x * x + y * y + z * z);
       const lat = Math.asin(y / r);
       const lon = Math.atan2(z, x);
-      // Geoid: strongly flattened at poles, wider at equator
       const flatFactor = 1.0 - 0.25 * Math.sin(lat) * Math.sin(lat);
-      // More pronounced irregular bumps
       const bump = 1.0
         + 0.03 * Math.sin(3.0 * lat) * Math.cos(2.0 * lon)
         + 0.02 * Math.sin(5.0 * lat + 1.0) * Math.cos(4.0 * lon + 0.5)
@@ -151,7 +145,6 @@ function CentralSphere() {
   );
 }
 
-// ─── Logo (stays centered, faces camera, scales with zoom) ──────────────────
 function Logo() {
   const ref = useRef<THREE.Mesh>(null!);
   const { camera } = useThree();
@@ -165,7 +158,6 @@ function Logo() {
   useFrame(({ clock }) => {
     if (ref.current) {
       ref.current.lookAt(camera.position);
-      // Breathing animation
       const breathe = 1 + Math.sin(clock.getElapsedTime() * 0.8) * 0.04;
       ref.current.scale.setScalar(breathe);
     }
@@ -179,7 +171,6 @@ function Logo() {
   );
 }
 
-// ─── Image panel (GPU texture, no Html!) ────────────────────────────────────
 function ImagePanel({ item, position, onSelect }: {
   item: ContentItem; position: THREE.Vector3; onSelect: (item: ContentItem) => void;
 }) {
@@ -192,7 +183,6 @@ function ImagePanel({ item, position, onSelect }: {
     return new THREE.Euler().setFromQuaternion(q);
   }, [position]);
 
-  // Load texture
   const texture = useTexture(item.src || "/images/logo-hh.svg");
   texture.colorSpace = THREE.SRGBColorSpace;
 
@@ -221,7 +211,6 @@ function ImagePanel({ item, position, onSelect }: {
   );
 }
 
-// Wrapper with error boundary for texture loading
 class ImageErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean }> {
   constructor(props: { children: React.ReactNode }) {
     super(props);
@@ -241,7 +230,6 @@ function SafeImagePanel(props: { item: ContentItem; position: THREE.Vector3; onS
   );
 }
 
-// ─── Video panel (HTML video element on sphere) ─────────────────────────────
 function VideoPanel({ item, position, onSelect }: {
   item: ContentItem; position: THREE.Vector3; onSelect: (item: ContentItem) => void;
 }) {
@@ -287,7 +275,6 @@ function VideoPanel({ item, position, onSelect }: {
   );
 }
 
-// ─── Text panel (Html, only 5 of these) ─────────────────────────────────────
 function TextPanel({ item, position, onSelect }: {
   item: ContentItem; position: THREE.Vector3; onSelect: (item: ContentItem) => void;
 }) {
@@ -297,9 +284,7 @@ function TextPanel({ item, position, onSelect }: {
 
   useFrame(() => {
     if (!ref.current) return;
-    // Always face the camera
     ref.current.lookAt(camera.position);
-    // Hover scale
     const target = hovered ? 1.1 : 1;
     const s = ref.current.scale.x;
     ref.current.scale.setScalar(s + (target - s) * 0.08);
@@ -330,12 +315,10 @@ function TextPanel({ item, position, onSelect }: {
 }
 
 
-// ─── Logo + Menu group (always faces camera, stays centered) ─────────────────
 function LogoMenuGroup({ onSelect }: { onSelect: (item: ContentItem) => void }) {
   const groupRef = useRef<THREE.Group>(null!);
   const { camera } = useThree();
 
-  // Menu layout: positions relative to logo center
   const menuLayout = [
     { id: "bio",      y: -1.5,  x: 0 },
     { id: "abstract", y: 1.6,   x: -2.5 },
@@ -347,7 +330,6 @@ function LogoMenuGroup({ onSelect }: { onSelect: (item: ContentItem) => void }) 
   useFrame(({ clock }) => {
     if (!groupRef.current) return;
     groupRef.current.lookAt(camera.position);
-    // Breathing animation on logo (first child)
     const logo = groupRef.current.children[0] as THREE.Mesh;
     if (logo) {
       const breathe = 1 + Math.sin(clock.getElapsedTime() * 0.8) * 0.04;
@@ -357,14 +339,10 @@ function LogoMenuGroup({ onSelect }: { onSelect: (item: ContentItem) => void }) 
 
   return (
     <group ref={groupRef} position={[0, 0, 0]} renderOrder={999}>
-      {/* (inner smoke removed — handled by background shader vignette) */}
-
-      {/* Logo */}
       <Suspense fallback={null}>
         <LogoMesh />
       </Suspense>
 
-      {/* Menu items around logo */}
       {TEXT_ITEMS.map((item) => {
         const layout = menuLayout.find(l => l.id === item.id);
         if (!layout) return null;
@@ -402,7 +380,6 @@ function LogoMenuGroup({ onSelect }: { onSelect: (item: ContentItem) => void }) 
   );
 }
 
-// ─── Logo mesh (just the textured plane, no lookAt — parent group handles it) ──
 function LogoMesh() {
   const texture = useTexture("/images/logo-hh.svg");
   texture.colorSpace = THREE.SRGBColorSpace;
@@ -418,8 +395,6 @@ function LogoMesh() {
   );
 }
 
-// ─── Trackpad orbit controls ─────────────────────────────────────────────────
-// Two-finger scroll = rotate, pinch = zoom, click+drag = rotate
 function TrackpadOrbitControls() {
   const { camera, gl } = useThree();
 
@@ -438,13 +413,11 @@ function TrackpadOrbitControls() {
       e.preventDefault();
 
       if (e.ctrlKey) {
-        // Pinch zoom on trackpad
         spherical.setFromVector3(camera.position);
         spherical.radius = Math.max(minDist, Math.min(maxDist, spherical.radius + e.deltaY * 0.05));
         camera.position.setFromSpherical(spherical);
         camera.lookAt(0, 0, 0);
       } else {
-        // Two-finger scroll: accumulate velocity (slower)
         velocityTheta -= e.deltaX * 0.0003;
         velocityPhi -= e.deltaY * 0.0003;
       }
@@ -463,7 +436,6 @@ function TrackpadOrbitControls() {
       camera.position.setFromSpherical(spherical);
       camera.lookAt(0, 0, 0);
 
-      // Friction for smooth deceleration
       velocityTheta *= 0.92;
       velocityPhi *= 0.92;
     };
@@ -493,7 +465,6 @@ function TrackpadOrbitControls() {
   );
 }
 
-// ─── Inner smoke sphere (fades at edges, same smoke as background) ───────────
 const INNER_SMOKE_VERT = /* glsl */ `
   varying vec2 vUv;
   varying vec3 vNormal;
@@ -531,7 +502,6 @@ const INNER_SMOKE_FRAG = /* glsl */ `
     col = mix(col, cCrimson, smoothstep(0.22,0.48,f));
     col = mix(col, cRed, smoothstep(0.42,0.60,f)*0.45);
 
-    // Fresnel fade: opaque at edges (smoke visible), transparent at center (black/clear)
     float fresnel = 1.0 - abs(dot(vNormal, normalize(-vPosition)));
     float alpha = smoothstep(0.2, 0.8, fresnel) * 0.9;
 
@@ -561,7 +531,6 @@ function InnerSmoke() {
   );
 }
 
-// ─── Smoke background (rendered on large sphere behind everything) ──────────
 const SMOKE_VERT = "varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }";
 const SMOKE_FRAG = [
   "precision mediump float;",
@@ -608,7 +577,6 @@ function SmokeBackground() {
     </mesh>
   );
 }
-// ─── Slow rotation wrapper ──────────────────────────────────────────────────
 function RotatingGroup({ children }: { children: React.ReactNode }) {
   const ref = useRef<THREE.Group>(null!);
   useFrame(({ clock }) => {
@@ -617,12 +585,8 @@ function RotatingGroup({ children }: { children: React.ReactNode }) {
   return <group ref={ref}>{children}</group>;
 }
 
-// ─── Scene ──────────────────────────────────────────────────────────────────
 function SceneContent({ onSelect }: { onSelect: (item: ContentItem) => void }) {
   const positions = useMemo(() => {
-    // Text items: centered above and below the logo, at front of sphere
-    // Order in TEXT_ITEMS: Bio(0), Abstract(1), Tech Rider(2), Links(3), Dates(4)
-    // Above: Abstract, Tech Rider  |  Below: Bio, Links, Dates
     const textLayout = [
       { y: -0.6, x: 0 },     // Bio - just below logo
       { y: 1.0, x: -1.5 },   // Abstract - above logo left
@@ -637,7 +601,6 @@ function SceneContent({ onSelect }: { onSelect: (item: ContentItem) => void }) {
       return applyGeoid(new THREE.Vector3(layout.x, layout.y, z));
     });
 
-    // Media items: sunflower on sphere, covering full surface including poles
     const mediaPositions = MEDIA_ITEMS.map((_, i) => {
       const total = MEDIA_ITEMS.length;
       const y = 1 - (i / (total - 1)) * 2;
@@ -679,14 +642,12 @@ function SceneContent({ onSelect }: { onSelect: (item: ContentItem) => void }) {
         })}
       </RotatingGroup>
 
-      {/* Logo + menu: grouped together, always face camera */}
       <LogoMenuGroup onSelect={onSelect} />
       <TrackpadOrbitControls />
     </>
   );
 }
 
-// ─── Modal (outside canvas) ─────────────────────────────────────────────────
 function Modal({ item, onClose }: { item: ContentItem; onClose: () => void }) {
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
@@ -744,7 +705,6 @@ function Modal({ item, onClose }: { item: ContentItem; onClose: () => void }) {
   );
 }
 
-// ─── Main ───────────────────────────────────────────────────────────────────
 export default function SphereScene({ onReady }: { onReady?: () => void }) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const [openItem, setOpenItem] = useState<ContentItem | null>(null);
@@ -754,7 +714,6 @@ export default function SphereScene({ onReady }: { onReady?: () => void }) {
 
   const handleSelect = useCallback((item: ContentItem) => {
     setZoomingItem(item);
-    // Zoom effect for 800ms then open modal
     zoomTimerRef.current = setTimeout(() => {
       setZoomingItem(null);
       setOpenItem(item);
@@ -769,9 +728,7 @@ export default function SphereScene({ onReady }: { onReady?: () => void }) {
     const audio = audioRef.current;
     if (!audio) return;
     audio.volume = 0.35;
-    // Tente de jouer immédiatement (le clic Enter a déjà débloqué l'autoplay)
     audio.play().catch(() => {
-      // Fallback : attend un clic si l'autoplay est bloqué
       const play = () => { audio.play().catch(() => {}); document.removeEventListener("click", play); };
       document.addEventListener("click", play);
       return () => document.removeEventListener("click", play);
@@ -789,7 +746,6 @@ export default function SphereScene({ onReady }: { onReady?: () => void }) {
       >
         <SceneContent onSelect={handleSelect} />
       </Canvas>
-      {/* Ensure custom font is available for drei Html portals */}
       <style dangerouslySetInnerHTML={{ __html: `
         @font-face {
           font-family: "Enclav Acadam";
@@ -806,7 +762,6 @@ export default function SphereScene({ onReady }: { onReady?: () => void }) {
           font-style: normal;
         }
       `}} />
-      {/* Zoom effect overlay */}
       {zoomingItem && (
         <div style={{
           position: "fixed", inset: 0, zIndex: 9998, background: "rgba(0,0,0,0)",
