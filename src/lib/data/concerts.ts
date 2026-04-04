@@ -6,9 +6,9 @@ export type Concert = {
 };
 
 export const CONCERTS: Concert[] = [
-  { date: "2026-02-14", city: "PARIS", venue: "—", url: "" },
-  { date: "2026-03-01", city: "LYON", venue: "—", url: "" },
-  { date: "2026-04-12", city: "BRUXELLES", venue: "—", url: "" }
+  { date: "2026-02-14", city: "PARIS" },
+  { date: "2026-03-01", city: "LYON" },
+  { date: "2026-04-12", city: "BRUXELLES" }
 ];
 
 export const ABSTRACT_LINES = [
@@ -40,10 +40,17 @@ export const TECH_RIDER_LINES = [
   "LIGHTS CAN BE DISCUSSED; FOG MACHINE"
 ];
 
-export const LINKS_LINES = [
-  "INSTAGRAM: @__HANNAHHAJAR",
-  "MAIL: HAHAHANNAHHAJAR@GMAIL.COM",
-  "PHONE: +33 6 31 60 59 12 (JEANNE)",
-  "LIVE SESSION ON YOUTUBE: LIVE SESSION AT ICTUS ENSEMBLE STUDIO, BRUSSELS",
-  "SOUNDCLOUD: HANNAH HAJAR (SOUNDCLOUD)"
+export type LinkItem = {
+  label: string;
+  url?: string;
+};
+
+export const LINKS_DATA: LinkItem[] = [
+  { label: "INSTAGRAM: @__HANNAHHAJAR", url: "https://www.instagram.com/__hannahhajar" },
+  { label: "MAIL: HAHAHANNAHHAJAR@GMAIL.COM", url: "mailto:hahahannahhajar@gmail.com" },
+  { label: "PHONE: +33 6 31 60 59 12 (JEANNE)" },
+  { label: "LIVE SESSION ON YOUTUBE: LIVE SESSION AT ICTUS ENSEMBLE STUDIO, BRUSSELS", url: "https://www.youtube.com/@hannahhajar" },
+  { label: "SOUNDCLOUD: HANNAH HAJAR (SOUNDCLOUD)", url: "https://soundcloud.com/hannahhajar" },
 ];
+
+export const LINKS_LINES = LINKS_DATA.map(l => l.label);
