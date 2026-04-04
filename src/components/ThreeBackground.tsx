@@ -164,11 +164,12 @@ export default function ThreeBackground() {
     window.addEventListener("resize", onResize);
 
     let rafId: number;
-    const clock = new THREE.Clock();
+    const timer = new THREE.Timer();
 
     const tick = () => {
       rafId = requestAnimationFrame(tick);
-      const t = clock.getElapsedTime();
+      timer.update();
+      const t = timer.getElapsed();
 
       mouse.lerp(mouseTarget, 0.025);
       uniforms.uTime.value  = t;

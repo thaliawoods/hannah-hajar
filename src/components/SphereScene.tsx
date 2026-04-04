@@ -6,7 +6,7 @@ import { OrbitControls, Html, useTexture } from "@react-three/drei";
 import * as THREE from "three";
 import { IMAGE_ITEMS, VIDEO_ITEMS } from "@/lib/data/media";
 import CursorParticles from "@/components/CursorParticles";
-import { ABSTRACT_LINES, BIO_LINES, TECH_RIDER_LINES, LINKS_LINES, CONCERTS } from "@/lib/data/concerts";
+import { ABSTRACT_LINES, BIO_LINES, TECH_RIDER_LINES, LINKS_LINES, LINKS_DATA, CONCERTS } from "@/lib/data/concerts";
 
 type ContentItem = {
   id: string;
@@ -319,7 +319,15 @@ function LogoMenuGroup({ onSelect }: { onSelect: (item: ContentItem) => void }) 
   const groupRef = useRef<THREE.Group>(null!);
   const { camera } = useThree();
 
-  const menuLayout = [
+  const isMobile = typeof window !== "undefined" && window.innerWidth < 600;
+
+  const menuLayout = isMobile ? [
+    { id: "bio",      y: -1.2,  x: 0 },
+    { id: "abstract", y: 1.2,   x: -1.6 },
+    { id: "tech",     y: 1.2,   x: 1.6 },
+    { id: "links",    y: -1.6,  x: -1.6 },
+    { id: "dates",    y: -1.6,  x: 1.6 },
+  ] : [
     { id: "bio",      y: -1.5,  x: 0 },
     { id: "abstract", y: 1.6,   x: -2.5 },
     { id: "tech",     y: 1.6,   x: 2.5 },
@@ -362,7 +370,7 @@ function LogoMenuGroup({ onSelect }: { onSelect: (item: ContentItem) => void }) 
                   textTransform: "uppercase",
                   letterSpacing: "0.25em",
                   textAlign: "center",
-                  fontSize: "30px",
+                  fontSize: isMobile ? "18px" : "30px",
                   fontWeight: 900,
                   cursor: "pointer",
                   transition: "opacity 0.4s, color 0.4s",
@@ -680,26 +688,44 @@ function Modal({ item, onClose }: { item: ContentItem; onClose: () => void }) {
   }
 
   return (
-    <div onClick={onClose} style={{
+    <div onClick={onClose} className="modal-overlay" style={{
       position: "fixed", inset: 0, display: "flex", alignItems: "center", justifyContent: "center",
       padding: "2rem 1.5rem", background: "rgba(2,0,1,0.9)", backdropFilter: "blur(6px)", zIndex: 9999,
     }}>
-      <div onClick={e => e.stopPropagation()} style={{
-        width: "min(1200px, 94vw)", maxHeight: "86vh", overflow: "auto",
-        background: "#090004", boxShadow: "0 30px 80px rgba(0,0,0,0.55)", padding: "2rem", color: "rgba(255, 30, 73, 0.55)",
+      <div onClick={e => e.stopPropagation()} className="modal-card-inner" style={{
+        width: "min(1200px, 94vw)", maxHeight: "86vh",
+        background: "#090004", boxShadow: "0 30px 80px rgba(0,0,0,0.55)", color: "rgba(255, 30, 73, 0.55)",
+        display: "flex", flexDirection: "column" as const,
       }}>
-        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "1.5rem" }}>
-          {item.title && <div style={{ textTransform: "uppercase", letterSpacing: "0.3em", fontSize: "2.5rem", fontFamily: "'Enclav Acadam', sans-serif", fontWeight: 700 }}>{item.title}</div>}
-          <button onClick={onClose} style={{
-            background: "transparent", border: "none", color: "rgba(255, 30, 73, 0.55)", letterSpacing: "0.2em",
-            textTransform: "uppercase", cursor: "pointer", fontSize: "0.55rem", fontFamily: "Josafronde, Space Grotesk, sans-serif",
-          }}>FERMER · ESC</button>
-        </div>
-        {item.lines && (
-          <div style={{ lineHeight: 1.5, textTransform: "uppercase", fontSize: "0.9rem", letterSpacing: "0.08em", fontFamily: "Josafronde, Space Grotesk, sans-serif" }}>
-            {item.lines.map((line, i) => <p key={i} style={{ margin: i > 0 ? "0.45rem 0 0 0" : "0" }}>{line}</p>)}
+        <div style={{ padding: "clamp(1.2rem, 4vw, 2rem)", paddingBottom: 0 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "1.5rem" }}>
+            {item.title && <div style={{ textTransform: "uppercase", letterSpacing: "0.3em", fontSize: "clamp(1.5rem, 5vw, 2.5rem)", fontFamily: "'Enclav Acadam', sans-serif", fontWeight: 700 }}>{item.title}</div>}
+            <button onClick={onClose} style={{
+              background: "transparent", border: "none", color: "rgba(255, 30, 73, 0.55)", letterSpacing: "0.2em",
+              textTransform: "uppercase", cursor: "pointer", fontSize: "0.55rem", fontFamily: "Josafronde, Space Grotesk, sans-serif", flexShrink: 0,
+            }}>FERMER · ESC</button>
           </div>
-        )}
+        </div>
+        <div style={{ overflowY: "auto", flex: 1, padding: "0 clamp(1.2rem, 4vw, 2rem) clamp(1.2rem, 4vw, 2rem)" }}>
+          {item.id === "links" ? (
+            <div style={{ lineHeight: 1.5, textTransform: "uppercase", fontSize: "clamp(0.7rem, 2.5vw, 0.9rem)", letterSpacing: "0.08em", fontFamily: "Josafronde, Space Grotesk, sans-serif" }}>
+              {LINKS_DATA.map((link, i) => (
+                <p key={i} style={{ margin: i > 0 ? "0.45rem 0 0 0" : "0" }}>
+                  {link.url ? (
+                    <a href={link.url} target="_blank" rel="noopener noreferrer" style={{ color: "inherit", textDecoration: "none", borderBottom: "1px solid rgba(255, 30, 73, 0.3)", paddingBottom: "1px", transition: "border-color 0.3s" }}
+                      onMouseEnter={e => { e.currentTarget.style.borderBottomColor = "rgba(255, 30, 73, 0.8)"; }}
+                      onMouseLeave={e => { e.currentTarget.style.borderBottomColor = "rgba(255, 30, 73, 0.3)"; }}
+                    >{link.label}</a>
+                  ) : link.label}
+                </p>
+              ))}
+            </div>
+          ) : item.lines && (
+            <div style={{ lineHeight: 1.5, textTransform: "uppercase", fontSize: "clamp(0.7rem, 2.5vw, 0.9rem)", letterSpacing: "0.08em", fontFamily: "Josafronde, Space Grotesk, sans-serif" }}>
+              {item.lines.map((line, i) => <p key={i} style={{ margin: i > 0 ? "0.45rem 0 0 0" : "0" }}>{line}</p>)}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -775,13 +801,13 @@ export default function SphereScene({ onReady }: { onReady?: () => void }) {
       {openItem && <Modal item={openItem} onClose={handleClose} />}
       <div style={{
         position: "fixed", bottom: "2rem", left: "50%", transform: "translateX(-50%)",
-        color: "rgba(255, 30, 73, 0.55)", fontSize: "0.55rem", letterSpacing: "0.3em",
-        textTransform: "uppercase", pointerEvents: "none", whiteSpace: "nowrap",
+        color: "rgba(255, 30, 73, 0.55)", fontSize: "clamp(0.4rem, 1.5vw, 0.55rem)", letterSpacing: "0.3em",
+        textTransform: "uppercase", pointerEvents: "none", whiteSpace: "nowrap", maxWidth: "90vw", textAlign: "center" as const,
         fontFamily: "Josafronde, Space Grotesk, sans-serif", zIndex: 10,
       }}>
         Scroll to turn the orbit · Pinch to zoom · Click to open
       </div>
-      <CursorParticles />
+      {!openItem && <CursorParticles />}
     </div>
   );
 }
