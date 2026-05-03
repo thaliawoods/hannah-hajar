@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useState, useMemo, useCallback, useEffect, Suspense } from "react";
+import React, { useRef, useState, useMemo, useCallback, useEffect, useLayoutEffect, Suspense } from "react";
 import { Canvas, useFrame, useThree, useLoader } from "@react-three/fiber";
 import { OrbitControls, Html, useTexture } from "@react-three/drei";
 import * as THREE from "three";
@@ -690,11 +690,8 @@ function Modal({ item, onClose }: { item: ContentItem; onClose: () => void }) {
     return () => window.removeEventListener("keydown", handler);
   }, [animateClose]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const ctx = gsap.context(() => {
-      if (overlayRef.current) {
-        gsap.fromTo(overlayRef.current, { opacity: 0 }, { opacity: 1, duration: 0.35, ease: "power2.out" });
-      }
       if (cardRef.current) {
         gsap.fromTo(
           cardRef.current,
