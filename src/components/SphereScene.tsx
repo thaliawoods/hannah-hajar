@@ -4,6 +4,7 @@ import React, { useRef, useState, useMemo, useCallback, useEffect, Suspense } fr
 import { Canvas, useFrame, useThree, useLoader } from "@react-three/fiber";
 import { OrbitControls, Html, useTexture } from "@react-three/drei";
 import * as THREE from "three";
+import gsap from "gsap";
 import { IMAGE_ITEMS, VIDEO_ITEMS } from "@/lib/data/media";
 import CursorParticles from "@/components/CursorParticles";
 import { ABSTRACT_LINES, BIO_LINES, TECH_RIDER_LINES, LINKS_LINES, LINKS_DATA, CONCERTS } from "@/lib/data/concerts";
@@ -190,12 +191,14 @@ function ImagePanel({ item, position, onSelect }: {
   const h = 1.9;
   const w = h * Math.min(aspect, 1.6);
 
-  useFrame(() => {
+  useEffect(() => {
     if (!meshRef.current) return;
     const target = hovered ? 1.12 : 1;
-    const s = meshRef.current.scale.x;
-    meshRef.current.scale.setScalar(s + (target - s) * 0.08);
-  });
+    gsap.to(meshRef.current.scale, {
+      x: target, y: target, z: target,
+      duration: 0.4, ease: "power2.out", overwrite: "auto",
+    });
+  }, [hovered]);
 
   return (
     <mesh ref={meshRef} position={position} rotation={rotation}
@@ -242,12 +245,14 @@ function VideoPanel({ item, position, onSelect }: {
     return new THREE.Euler().setFromQuaternion(q);
   }, [position]);
 
-  useFrame(() => {
+  useEffect(() => {
     if (!groupRef.current) return;
     const target = hovered ? 1.12 : 1;
-    const s = groupRef.current.scale.x;
-    groupRef.current.scale.setScalar(s + (target - s) * 0.08);
-  });
+    gsap.to(groupRef.current.scale, {
+      x: target, y: target, z: target,
+      duration: 0.4, ease: "power2.out", overwrite: "auto",
+    });
+  }, [hovered]);
 
   return (
     <group ref={groupRef} position={position} rotation={rotation}
@@ -285,10 +290,16 @@ function TextPanel({ item, position, onSelect }: {
   useFrame(() => {
     if (!ref.current) return;
     ref.current.lookAt(camera.position);
-    const target = hovered ? 1.1 : 1;
-    const s = ref.current.scale.x;
-    ref.current.scale.setScalar(s + (target - s) * 0.08);
   });
+
+  useEffect(() => {
+    if (!ref.current) return;
+    const target = hovered ? 1.1 : 1;
+    gsap.to(ref.current.scale, {
+      x: target, y: target, z: target,
+      duration: 0.4, ease: "power2.out", overwrite: "auto",
+    });
+  }, [hovered]);
 
   return (
     <group position={position} ref={ref}
@@ -657,30 +668,62 @@ function SceneContent({ onSelect }: { onSelect: (item: ContentItem) => void }) {
 }
 
 function Modal({ item, onClose }: { item: ContentItem; onClose: () => void }) {
+  const overlayRef = useRef<HTMLDivElement>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const closingRef = useRef(false);
+
+  const animateClose = useCallback(() => {
+    if (closingRef.current) return;
+    closingRef.current = true;
+    const tl = gsap.timeline({ onComplete: onClose });
+    if (cardRef.current) {
+      tl.to(cardRef.current, { opacity: 0, scale: 0.96, y: 8, duration: 0.25, ease: "power2.in" }, 0);
+    }
+    if (overlayRef.current) {
+      tl.to(overlayRef.current, { opacity: 0, duration: 0.3, ease: "power2.in" }, 0);
+    }
+  }, [onClose]);
+
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") animateClose(); };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [onClose]);
+  }, [animateClose]);
+
+  useEffect(() => {
+    const ctx = gsap.context(() => {
+      if (overlayRef.current) {
+        gsap.fromTo(overlayRef.current, { opacity: 0 }, { opacity: 1, duration: 0.35, ease: "power2.out" });
+      }
+      if (cardRef.current) {
+        gsap.fromTo(
+          cardRef.current,
+          { opacity: 0, scale: 0.92, y: 20 },
+          { opacity: 1, scale: 1, y: 0, duration: 0.55, ease: "power3.out", delay: 0.1 },
+        );
+      }
+    });
+    return () => ctx.revert();
+  }, []);
 
   if (item.type === "image" || item.type === "video") {
     return (
-      <div onClick={onClose} style={{
+      <div ref={overlayRef} onClick={animateClose} style={{
         position: "fixed", inset: 0, zIndex: 9999, background: "#000",
         display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer",
       }}>
-        <button onClick={onClose} style={{
+        <button onClick={animateClose} style={{
           position: "fixed", top: "1.2rem", right: "1.5rem", background: "transparent",
           border: "none", color: "rgba(255, 30, 73, 0.55)", padding: "0.5rem 1.1rem", letterSpacing: "0.22em",
           textTransform: "uppercase", cursor: "pointer", fontSize: "0.6rem",
           fontFamily: "Josafronde, Space Grotesk, sans-serif", zIndex: 10000,
         }}>FERMER · ESC</button>
         {item.type === "image" && item.src && (
-          <img src={item.src} alt={item.label || "Hannah Hajar"} onClick={e => e.stopPropagation()}
+          <img ref={cardRef as unknown as React.RefObject<HTMLImageElement>} src={item.src} alt={item.label || "Hannah Hajar"} onClick={e => e.stopPropagation()}
             style={{ maxWidth: "100vw", maxHeight: "100vh", objectFit: "contain", cursor: "default" }} />
         )}
         {item.type === "video" && item.src && (
-          <video src={item.src} controls autoPlay onClick={e => e.stopPropagation()}
+          <video ref={cardRef as unknown as React.RefObject<HTMLVideoElement>} src={item.src} controls autoPlay onClick={e => e.stopPropagation()}
             style={{ maxWidth: "100vw", maxHeight: "100vh", objectFit: "contain", cursor: "default" }} />
         )}
       </div>
@@ -688,11 +731,11 @@ function Modal({ item, onClose }: { item: ContentItem; onClose: () => void }) {
   }
 
   return (
-    <div onClick={onClose} className="modal-overlay" style={{
+    <div ref={overlayRef} onClick={animateClose} className="modal-overlay" style={{
       position: "fixed", inset: 0, display: "flex", alignItems: "center", justifyContent: "center",
       padding: "2rem 1.5rem", background: "rgba(2,0,1,0.9)", backdropFilter: "blur(6px)", zIndex: 9999,
     }}>
-      <div onClick={e => e.stopPropagation()} className="modal-card-inner" style={{
+      <div ref={cardRef} onClick={e => e.stopPropagation()} className="modal-card-inner" style={{
         width: "min(1200px, 94vw)", maxHeight: "86vh",
         background: "#090004", boxShadow: "0 30px 80px rgba(0,0,0,0.55)", color: "rgba(255, 30, 73, 0.55)",
         display: "flex", flexDirection: "column" as const,
@@ -700,7 +743,7 @@ function Modal({ item, onClose }: { item: ContentItem; onClose: () => void }) {
         <div style={{ padding: "clamp(1.2rem, 4vw, 2rem)", paddingBottom: 0 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "1.5rem" }}>
             {item.title && <div style={{ textTransform: "uppercase", letterSpacing: "0.3em", fontSize: "clamp(1.5rem, 5vw, 2.5rem)", fontFamily: "'Enclav Acadam', sans-serif", fontWeight: 700 }}>{item.title}</div>}
-            <button onClick={onClose} style={{
+            <button onClick={animateClose} style={{
               background: "transparent", border: "none", color: "rgba(255, 30, 73, 0.55)", letterSpacing: "0.2em",
               textTransform: "uppercase", cursor: "pointer", fontSize: "0.55rem", fontFamily: "Josafronde, Space Grotesk, sans-serif", flexShrink: 0,
             }}>FERMER · ESC</button>
@@ -736,18 +779,36 @@ export default function SphereScene({ onReady }: { onReady?: () => void }) {
   const [openItem, setOpenItem] = useState<ContentItem | null>(null);
 
   const [zoomingItem, setZoomingItem] = useState<ContentItem | null>(null);
-  const zoomTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const zoomOverlayRef = useRef<HTMLDivElement>(null);
+  const zoomTweenRef = useRef<gsap.core.Tween | null>(null);
 
   const handleSelect = useCallback((item: ContentItem) => {
     setZoomingItem(item);
-    zoomTimerRef.current = setTimeout(() => {
-      setZoomingItem(null);
-      setOpenItem(item);
-    }, 800);
   }, []);
+
+  useEffect(() => {
+    if (!zoomingItem || !zoomOverlayRef.current) return;
+    zoomTweenRef.current = gsap.fromTo(
+      zoomOverlayRef.current,
+      { backgroundColor: "rgba(0,0,0,0)" },
+      {
+        backgroundColor: "rgba(0,0,0,0.95)",
+        duration: 0.8,
+        ease: "power2.inOut",
+        onComplete: () => {
+          setOpenItem(zoomingItem);
+          setZoomingItem(null);
+        },
+      },
+    );
+    return () => {
+      zoomTweenRef.current?.kill();
+    };
+  }, [zoomingItem]);
+
   const handleClose = useCallback(() => {
     setOpenItem(null);
-    if (zoomTimerRef.current) clearTimeout(zoomTimerRef.current);
+    zoomTweenRef.current?.kill();
   }, []);
 
   useEffect(() => {
@@ -789,14 +850,11 @@ export default function SphereScene({ onReady }: { onReady?: () => void }) {
         }
       `}} />
       {zoomingItem && (
-        <div style={{
-          position: "fixed", inset: 0, zIndex: 9998, background: "rgba(0,0,0,0)",
+        <div ref={zoomOverlayRef} style={{
+          position: "fixed", inset: 0, zIndex: 9998, backgroundColor: "rgba(0,0,0,0)",
           display: "flex", alignItems: "center", justifyContent: "center",
-          animation: "zoomIn 0.8s ease-in-out forwards",
           pointerEvents: "none",
-        }}>
-          <style>{"@keyframes zoomIn { 0% { background: rgba(0,0,0,0); } 100% { background: rgba(0,0,0,0.95); } }"}</style>
-        </div>
+        }} />
       )}
       {openItem && <Modal item={openItem} onClose={handleClose} />}
       <div style={{
