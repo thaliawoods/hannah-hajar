@@ -1,8 +1,7 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect } from "react";
 import dynamic from "next/dynamic";
-import gsap from "gsap";
 
 const SphereScene = dynamic(() => import("@/components/SphereScene"), {
   ssr: false,
@@ -13,12 +12,6 @@ type Phase = "enter" | "loading" | "ready";
 export default function Home() {
   const [phase, setPhase] = useState<Phase>("enter");
   const [fadeOut, setFadeOut] = useState(false);
-
-  const logoRef = useRef<HTMLImageElement>(null);
-  const enterTextRef = useRef<HTMLDivElement>(null);
-  const loadingTextRef = useRef<HTMLDivElement>(null);
-  const loadingBarRef = useRef<HTMLDivElement>(null);
-  const fadeOverlayRef = useRef<HTMLDivElement>(null);
 
   const handleEnter = () => {
     if (phase === "enter") setPhase("loading");
@@ -36,77 +29,6 @@ export default function Home() {
     setPhase("ready");
     setTimeout(() => setFadeOut(true), 150);
   }, []);
-
-  useEffect(() => {
-    const ctx = gsap.context(() => {
-      if (logoRef.current) {
-        gsap.fromTo(
-          logoRef.current,
-          { scale: 1, opacity: 0.85 },
-          {
-            scale: 1.03,
-            opacity: 1,
-            duration: 2,
-            ease: "sine.inOut",
-            repeat: -1,
-            yoyo: true,
-          },
-        );
-      }
-      if (enterTextRef.current) {
-        gsap.fromTo(
-          enterTextRef.current,
-          { opacity: 0 },
-          { opacity: 1, duration: 1.2, ease: "power2.out" },
-        );
-      }
-    });
-    return () => ctx.revert();
-  }, [phase]);
-
-  useEffect(() => {
-    if (phase !== "loading") return;
-    const ctx = gsap.context(() => {
-      const tl = gsap.timeline();
-      if (loadingTextRef.current) {
-        tl.fromTo(
-          loadingTextRef.current,
-          { opacity: 0.35 },
-          {
-            opacity: 0.7,
-            duration: 0.75,
-            ease: "sine.inOut",
-            repeat: -1,
-            yoyo: true,
-          },
-          0,
-        );
-      }
-      if (loadingBarRef.current) {
-        tl.fromTo(
-          loadingBarRef.current,
-          { x: -100 },
-          {
-            x: 290,
-            duration: 1.2,
-            ease: "power1.inOut",
-            repeat: -1,
-          },
-          0,
-        );
-      }
-    });
-    return () => ctx.revert();
-  }, [phase]);
-
-  useEffect(() => {
-    if (!fadeOut || !fadeOverlayRef.current) return;
-    gsap.fromTo(
-      fadeOverlayRef.current,
-      { opacity: 1 },
-      { opacity: 0, duration: 0.8, ease: "power2.inOut" },
-    );
-  }, [fadeOut]);
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "#040102" }}>
@@ -130,19 +52,18 @@ export default function Home() {
           }}
         >
           <img
-            ref={logoRef}
             src="/images/logo-hh.svg"
             alt="Hannah Hajar"
             style={{
               width: "min(500px, 70vw)",
               marginBottom: "3rem",
               filter: "drop-shadow(0 0 30px rgba(255,30,73,0.25))",
+              animation: "breatheLogo 4s ease-in-out infinite",
             }}
           />
 
           {phase === "enter" && (
             <div
-              ref={enterTextRef}
               style={{
                 color: "rgba(255, 30, 73, 0.55)",
                 fontFamily: "'Enclav Acadam', 'Space Grotesk', sans-serif",
@@ -150,6 +71,7 @@ export default function Home() {
                 fontWeight: 900,
                 letterSpacing: "0.25em",
                 textTransform: "uppercase",
+                animation: "fadeIn 1.2s ease forwards",
                 cursor: "pointer",
                 transition: "color 0.4s, opacity 0.4s",
               }}
@@ -167,7 +89,6 @@ export default function Home() {
           {phase === "loading" && (
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "1rem" }}>
               <div
-                ref={loadingTextRef}
                 style={{
                   color: "rgba(255, 30, 73, 0.35)",
                   fontFamily: "'Enclav Acadam', 'Space Grotesk', sans-serif",
@@ -175,6 +96,7 @@ export default function Home() {
                   fontWeight: 900,
                   letterSpacing: "0.25em",
                   textTransform: "uppercase",
+                  animation: "pulse 1.5s ease-in-out infinite",
                 }}
               >
                 loading
@@ -189,12 +111,12 @@ export default function Home() {
                 }}
               >
                 <div
-                  ref={loadingBarRef}
                   style={{
                     width: "35%",
                     height: "100%",
                     background: "rgba(255, 30, 73, 0.35)",
                     borderRadius: "1px",
+                    animation: "loadingBar 1.2s ease-in-out infinite",
                   }}
                 />
               </div>
@@ -204,13 +126,13 @@ export default function Home() {
         </div>
       ) : (
         <div
-          ref={fadeOverlayRef}
           style={{
             position: "fixed",
             inset: 0,
             background: "#040102",
             zIndex: 9999,
             pointerEvents: "none",
+            animation: "fadeOutFinal 0.8s ease forwards",
           }}
         >
         </div>
