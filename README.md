@@ -13,7 +13,7 @@ Une attention particulière a été portée à la cohérence entre intention art
 
 ---
 
-## Concept
+## Concept 
 
 Le site est pensé comme un espace navigable.
 
