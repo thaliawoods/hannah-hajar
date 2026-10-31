@@ -1,184 +1,154 @@
-# Hannah Hajar — Site interactif audio-réactif
+# Hannah Hajar — site 3D audio-réactif
 
-## Présentation
+Site expérimental conçu pour un duo musical. Ce n'est pas un site vitrine :
+les contenus sont dispersés dans une scène 3D qu'on explore à l'orbite, sans
+menu et sans scroll. La navigation spatiale remplace la hiérarchie.
 
-Ce projet est un site web expérimental conçu pour un duo musical.  
-Il ne s’agit pas d’un site vitrine classique, mais d’un espace interactif dans lequel le son, les fragments visuels et la navigation spatiale constituent l’interface elle-même.
-
-L’objectif est d’explorer une autre manière de concevoir le web : sans menu traditionnel, sans hiérarchie verticale, sans scroll linéaire.
-
-L’expérience repose sur la relation entre le déplacement de l’utilisateur, la proximité spatiale et l’intensité sonore.
-
-Une attention particulière a été portée à la cohérence entre intention artistique, architecture technique et performance.
+→ [hannah-hajar.vercel.app](https://hannah-hajar.vercel.app/)
 
 ---
 
-## Concept 
+## Fonctionnement
 
-Le site est pensé comme un espace navigable.
+La page passe par trois états : `enter` (écran d'accueil avec le logo),
+`loading` (préchargement de la scène), puis `ready`.
 
-L’utilisateur entre dans une zone centrale, déclenche l’audio, puis peut se déplacer librement dans un canvas étendu.
-
-Les contenus (textes, images, vidéos, concerts, fragments abstraits) sont disposés dans l’espace et apparaissent selon la position de navigation.
-
-Le son évolue en fonction de la distance entre l’utilisateur et certaines zones définies.
-
-La navigation remplace la structure hiérarchique classique.
+Une fois entré, on tourne autour d'une sphère centrale et on s'en rapproche ou
+s'en éloigne. Les contenus — images, vidéos, textes (bio, abstract, tech rider),
+dates de concerts — sont posés sur la sphère et restent toujours face à la
+caméra.
 
 ---
 
-## Fonctionnalités
+## Stack
 
-- Navigation par drag (pan libre sur un espace étendu)
-- Lecture d’un drone audio au moment de l’entrée
-- Modulation sonore selon la proximité spatiale
-- Forme organique audio-réactive
-- Fragments de contenu modulaires (texte, image, vidéo)
-- Ouverture des médias en plein écran
-- Logique de zones (bio, abstract, concerts, etc.)
-- Gestion des médias lourds via Git LFS
+- Next.js 14 (App Router)
+- React 18, TypeScript
+- Three.js + React Three Fiber + drei
+- GLSL (shaders écrits à la main)
+- GSAP (transitions)
+- Bunny CDN (hébergement des médias)
 
----
-
-## UI / UX
-
-L’interface repose sur une immersion minimale.
-
-Aucun menu traditionnel n’est visible.  
-L’espace est l’interface.
-
-La hiérarchie n’est pas verticale mais spatiale.  
-La distance devient un paramètre d’organisation.
-
-Les interactions sont volontairement limitées afin de préserver une sensation d’exploration fluide et organique.
-
----
-
-## Stack technique
-
-- Next.js (App Router)
-- React
-- TypeScript
-- Tailwind CSS
-- Web Audio API (moteur audio personnalisé)
-- Git LFS (gestion des médias lourds)
+Pas de Tailwind : le style est en CSS global et en styles inline.
 
 ---
 
 ## Architecture
 
-Le cœur du projet repose sur un composant central `Experience` qui orchestre :
-
-- la position utilisateur  
-- la logique de zones  
-- le calcul d’intensité selon la distance  
-- la modulation audio  
-- l’affichage des fragments  
-
-Structure simplifiée :
-
-Structure simplifiée :
-
 ```txt
 src/
- ├── app/
- ├── components/
- │    ├── Experience/
- │    ├── zones/
- ├── lib/
- │    ├── audio/
- │    ├── data/
- │    ├── hooks/
- │    └── math/
+ ├─ app/
+ │   ├─ page.tsx            # machine à états enter / loading / ready
+ │   ├─ layout.tsx
+ │   └─ globals.css
+ ├─ components/
+ │   ├─ SphereScene.tsx     # la scène 3D (le gros du projet)
+ │   ├─ ThreeBackground.tsx # le fond, shader GLSL plein écran
+ │   └─ CursorParticles.tsx # les particules qui suivent le curseur
+ └─ lib/
+     ├─ bunny.ts            # résolution des URL CDN + listing côté serveur
+     └─ data/
+         ├─ world.ts        # position et type de chaque élément de la scène
+         ├─ media.ts
+         └─ concerts.ts     # textes bio / abstract / tech rider / dates
 ```
 
-La logique de distance et d’intensité est isolée dans des modules dédiés afin de conserver une architecture claire et évolutive.
+---
 
 ## Choix techniques
 
+### Répartition des contenus sur la sphère
+
+Les éléments sont placés selon l'**angle d'or**, `π(3 − √5)`, ce qui donne la
+distribution dite en tournesol de Fibonacci. L'intérêt : les points sont
+régulièrement espacés sans jamais former de ligne ni de spirale visible. Une
+distribution au hasard ferait des paquets et des trous, une grille ferait
+apparaître des alignements.
+
+### Orientation des panneaux
+
+Pas de composant `Billboard` : chaque élément appelle `lookAt(camera.position)`
+à chaque frame. Les panneaux restent donc toujours lisibles, quelle que soit la
+position de l'orbite.
+
 ### Navigation
 
-La navigation repose sur un système de coordonnées internes (pan) plutôt que sur le scroll natif.  
-L’objectif est de permettre une exploration libre dans un espace étendu, proche d’une logique de constellation.
+`OrbitControls` de drei, avec le **zoom natif désactivé** (`enableZoom={false}`)
+et remplacé par un contrôle trackpad maison, pour que le geste à deux doigts
+soit interprété correctement. La distance caméra est bornée par `minDistance` et
+`maxDistance` autour du rayon de la sphère.
+
+### Le fond
+
+Le fond n'est pas une image mais un shader GLSL calculé à chaque frame. Un bruit
+fractal (`fbm`) est replié trois fois sur lui-même — technique du *domain
+warping* — ce qui produit des volutes qui ne se répètent jamais. Le centre de la
+déformation suit la position du curseur (`uMouse`). Les rouges viennent du
+mélange de trois teintes par `smoothstep` successifs.
+
+### Positions déterministes
+
+`world.ts` place les éléments avec une fonction pseudo-aléatoire déterministe
+(`fract(sin(n) * 43758.5453)`) plutôt qu'avec `Math.random()`. La disposition a
+l'air d'un hasard mais elle est strictement identique à chaque visite et à
+chaque build.
 
 ### Audio
 
-L’audio est déclenché lors de l’entrée (afin de respecter les contraintes navigateur autour de l’AudioContext).  
-Un moteur audio dédié permet de contrôler :
+Un drone en boucle, en balise `<audio>` HTML, volume fixe à `0.35`, démarré à
+l'entrée dans la scène (les navigateurs refusent la lecture automatique avant un
+geste utilisateur, d'où le repli sur un `click`).
 
-- le volume global
-- l’intensité par zone
-- les transitions progressives (fade)
+**Il n'y a pas de spatialisation ni de modulation du son selon la distance.**
+C'était l'intention de départ, ce n'est pas ce qui est en ligne.
 
-### Composants
+### Médias
 
-Les contenus sont organisés sous forme de fragments spécialisés (image, texte, vidéo).  
-Chaque composant est conçu pour être découplé, réutilisable et facilement extensible.
+Servis par Bunny CDN. `lib/bunny.ts` résout les URL côté client et expose un
+listing de la zone de stockage côté serveur. Pas de Git LFS.
 
-## Démarche
+---
 
-Le projet a été conçu à partir de croquis conceptuels définissant :
+## Lancer le projet
 
-- un espace central
-- des zones satellites
-- un principe de constellation
-- une navigation par déplacement plutôt que par clic hiérarchique
+Prérequis : Node.js >= 20.
 
-L’intention est de créer une interface qui fonctionne autant comme :
-
-- prototype artistique
-- terrain d’expérimentation UX
-- architecture interactive
-- outil de performance numérique
-
-## Installation et lancement
-
-### Prérequis
-
-- Node.js >= 20
-- npm
-
-### Installation
-
-bash
+```bash
 npm install
-
-### Lancer en local
-
-bash
 npm run dev
+```
 
-### Build de production
+Build de production :
 
-bash
+```bash
 npm run build
 npm run start
+```
 
-## Gestion des médias
+### Variables d'environnement
 
-Ce projet utilise Git LFS pour versionner certains médias volumineux.
+```bash
+NEXT_PUBLIC_BUNNY_CDN_URL=   # URL publique de la pull zone
+BUNNY_STORAGE_ZONE=          # serveur uniquement
+BUNNY_STORAGE_HOST=          # défaut : storage.bunnycdn.com
+BUNNY_STORAGE_PASSWORD=      # serveur uniquement
+```
 
-Si besoin, installer Git LFS puis :
+Sans `NEXT_PUBLIC_BUNNY_CDN_URL`, les chemins locaux sont utilisés en repli.
 
-bash
-git lfs install
-git lfs pull
+---
 
-## Pistes d’évolution
+## Limites connues
 
-- Optimisation des performances
-- Intégration WebGL
-- TreeJs
-- Spatialisation audio plus avancée
-- Placement procédural des fragments
-- Version mobile optimisée
-- Synchronisation multi-utilisateurs
+- Pas de spatialisation audio.
+- `SphereScene.tsx` fait près de 900 lignes et mériterait d'être découpé.
+- Le mobile n'est pas optimisé : la scène est pensée pour un pointeur et un
+  trackpad.
+- Les fichiers `* 2.ts` dans `lib/data/` sont des doublons à nettoyer.
 
 ---
 
 ## Autrice
 
-Thalia Woods  
-Développeuse créative — systèmes interactifs  
-
-Portfolio : https://thalia-woods.vercel.app
+Thalia Woods — développeuse créative, systèmes interactifs
+[thalia-woods.vercel.app](https://thalia-woods.vercel.app)
